@@ -1,0 +1,452 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id // Firebase UID
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  memberships Membership[]
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  data      Json?    @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  memberships        Membership[]
+  clients            Client[]
+  products           Product[]
+  suppliers          Supplier[]
+  carriers           Carrier[]
+  rawMaterials       RawMaterial[]
+  employees          Employee[]
+  machines           Machine[]
+  productionOrders   ProductionOrder[]
+  inventoryMovements InventoryMovement[]
+  warehouseLocations WarehouseLocation[]
+  sales              Sale[]
+  saleQuotes         SaleQuote[]
+  bankTransactions   BankTransaction[]
+  taxServicePayments TaxServicePayment[]
+  salaryPayments     SalaryPayment[]
+  vacations          Vacation[]
+  epiDeliveries      EpiDelivery[]
+  attendanceRecords  AttendanceRecord[]
+  workAccidents      WorkAccident[]
+  qualityInspections QualityInspection[]
+  complaints         Complaint[]
+  calibrations       Calibration[]
+  purchaseRequests   PurchaseRequest[]
+  auditLogs          AuditLog[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  roles     String[] @default(["operator"])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([userId, companyId])
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([companyId, deletedAt])
+}
+
+model Product {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  sku       String?
+  published Boolean   @default(false)
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([sku])
+}
+
+model Supplier {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  cnpj      String?
+  active    Boolean   @default(true)
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model Carrier {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  cnpj      String?
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model RawMaterial {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  sku       String?
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model Employee {
+  id                String    @id @default(cuid())
+  companyId         String
+  name              String
+  email             String
+  role              String
+  accessLevel       String    @default("operador")
+  hasAccess         Boolean   @default(false)
+  registrationNumber String?
+  startDate         DateTime?
+  data              Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([email])
+}
+
+model Machine {
+  id               String    @id @default(cuid())
+  companyId        String
+  name             String
+  model            String?
+  status           String    @default("Operativa")
+  lastMaintenance  DateTime?
+  nextMaintenance  DateTime?
+  data             Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model ProductionOrder {
+  id             String    @id @default(cuid())
+  companyId      String
+  orderNumber    String
+  batchNumber    String?
+  client         String
+  status         String    @default("Pendente")
+  priority       String    @default("Média")
+  startDate      DateTime?
+  completionDate DateTime?
+  data           Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([orderNumber])
+}
+
+model InventoryMovement {
+  id        String   @id @default(cuid())
+  companyId String
+  data      Json?
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model WarehouseLocation {
+  id         String   @id @default(cuid())
+  companyId  String
+  locationId String
+  data       Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, locationId])
+  @@index([companyId])
+}
+
+model Sale {
+  id        String    @id @default(cuid())
+  companyId String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model SaleQuote {
+  id              String    @id @default(cuid())
+  companyId       String
+  orcamentoNumero String
+  clienteNome     String
+  status          String    @default("Pendente")
+  data            Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([orcamentoNumero])
+}
+
+model BankTransaction {
+  id        String    @id @default(cuid())
+  companyId String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model TaxServicePayment {
+  id        String    @id @default(cuid())
+  companyId String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model SalaryPayment {
+  id        String    @id @default(cuid())
+  companyId String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model Vacation {
+  id           String    @id @default(cuid())
+  companyId    String
+  employeeId   String
+  employeeName String
+  startDate    DateTime
+  endDate      DateTime
+  status       String    @default("Agendada")
+  data         Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model EpiDelivery {
+  id           String    @id @default(cuid())
+  companyId    String
+  employeeId   String
+  employeeName String
+  deliveryDate DateTime
+  data         Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model AttendanceRecord {
+  id           String    @id @default(cuid())
+  companyId    String
+  employeeId   String
+  employeeName String
+  date         DateTime
+  status       String
+  data         Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model WorkAccident {
+  id           String    @id @default(cuid())
+  companyId    String
+  employeeId   String
+  employeeName String
+  accidentDate DateTime
+  severity     String
+  data         Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model QualityInspection {
+  id             String    @id @default(cuid())
+  companyId      String
+  inspectionDate DateTime
+  productName    String
+  status         String    @default("Agendada")
+  result         String?
+  data           Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model Complaint {
+  id               String    @id @default(cuid())
+  companyId        String
+  numeroReclamacao String
+  relacionadoNome  String
+  status           String    @default("Aberta")
+  data             Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model Calibration {
+  id                  String    @id @default(cuid())
+  companyId           String
+  instrumentName      String
+  instrumentId        String
+  nextCalibrationDate DateTime
+  status              String    @default("Pendente")
+  data                Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model PurchaseRequest {
+  id                String    @id @default(cuid())
+  companyId         String
+  numeroSolicitacao String
+  solicitanteNome   String
+  status            String    @default("Pendente")
+  data              Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  companyId String
+  timestamp DateTime @default(now())
+  user      String
+  module    String
+  action    String
+  data      Json?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([timestamp])
+}

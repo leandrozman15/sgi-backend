@@ -1,0 +1,12 @@
+                                  Table "public.User"
+  Column   |              Type              | Collation | Nullable |      Default      
+-----------+--------------------------------+-----------+----------+-------------------
+ id        | text                           |           | not null | 
+ email     | text                           |           |          | 
+ createdAt | timestamp(3) without time zone |           | not null | CURRENT_TIMESTAMP
+Indexes:
+    "User_pkey" PRIMARY KEY, btree (id)
+    "User_email_key" UNIQUE, btree (email)
+Referenced by:
+    TABLE ""Membership"" CONSTRAINT "Membership_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+

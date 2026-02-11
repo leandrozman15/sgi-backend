@@ -1,0 +1,1 @@
+/nix/store/kp9gnv8yjjblgvhyp9j9p6vd42ghwfra-postgresql-16.11/bin/postgres "-D" ".pgdata" "-p" "5432" "-h" "127.0.0.1" "-k" "/home/user/studio/sgi-backend/.pgsocket"
