@@ -70,14 +70,8 @@ model Membership {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
-  
-  // Relacionamentos
   company   Company  @relation(fields: [companyId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
-  
-  // Relacionamento com FirebaseUser (opcional)
-  firebaseUser   FirebaseUser? @relation(fields: [firebaseUserId], references: [id])
-  firebaseUserId String?       @map("firebase_user_id")
 
   @@unique([userId, companyId])
   @@index([deletedAt])
@@ -92,13 +86,7 @@ model AuditLog {
   data      Json?
   timestamp DateTime @default(now())
   createdAt DateTime @default(now())
-  
-  // Relacionamentos
   Company   Company  @relation(fields: [companyId], references: [id])
-  
-  // Relacionamento com FirebaseUser (opcional)
-  firebaseUser   FirebaseUser? @relation(fields: [firebaseUserId], references: [id])
-  firebaseUserId String?       @map("firebase_user_id")
 
   @@index([companyId])
   @@index([timestamp])
@@ -601,32 +589,3 @@ model SubscriptionHistory {
   @@index([companyId])
 }
 
-// ============================================
-// COMPLEMENTOS - MODELOS ADICIONAIS
-// ============================================
-
-// Modelo de usuários do Firebase (para referência)
-model FirebaseUser {
-  id           String   @id
-  email        String   @unique
-  displayName  String?
-  photoURL     String?
-  createdAt    DateTime @default(now()) @map("created_at")
-  lastLoginAt  DateTime? @map("last_login_at")
-  
-  // Relacionamentos
-  memberships Membership[]
-  auditLogs   AuditLog[]
-
-  @@map("firebase_users")
-}
-
-// Enum para Roles
-enum Role {
-  MASTER
-  ADMIN
-  GERENTE
-  SUPERVISOR
-  OPERADOR
-  CONSULTOR
-}

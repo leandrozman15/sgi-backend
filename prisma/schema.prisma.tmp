@@ -70,14 +70,8 @@ model Membership {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
-  
-  // Relacionamentos
   company   Company  @relation(fields: [companyId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
-  
-  // Relacionamento com FirebaseUser (opcional)
-  firebaseUser   FirebaseUser? @relation(fields: [firebaseUserId], references: [id])
-  firebaseUserId String?       @map("firebase_user_id")
 
   @@unique([userId, companyId])
   @@index([deletedAt])
@@ -92,13 +86,7 @@ model AuditLog {
   data      Json?
   timestamp DateTime @default(now())
   createdAt DateTime @default(now())
-  
-  // Relacionamentos
   Company   Company  @relation(fields: [companyId], references: [id])
-  
-  // Relacionamento com FirebaseUser (opcional)
-  firebaseUser   FirebaseUser? @relation(fields: [firebaseUserId], references: [id])
-  firebaseUserId String?       @map("firebase_user_id")
 
   @@index([companyId])
   @@index([timestamp])
@@ -601,6 +589,7 @@ model SubscriptionHistory {
   @@index([companyId])
 }
 
+
 // ============================================
 // COMPLEMENTOS - MODELOS ADICIONAIS
 // ============================================
@@ -614,14 +603,33 @@ model FirebaseUser {
   createdAt    DateTime @default(now()) @map("created_at")
   lastLoginAt  DateTime? @map("last_login_at")
   
-  // Relacionamentos
   memberships Membership[]
   auditLogs   AuditLog[]
 
   @@map("firebase_users")
 }
 
-// Enum para Roles
+// Adicionar campo companyId ao User se não existir (para usuário atual)
+// Nota: Isso é apenas para referência, o User já existe no schema
+// Se precisar adicionar campos ao User existente, faça:
+
+// model User {
+//   id          String       @id @default(cuid())
+//   email       String       @unique
+//   name        String?
+//   password    String
+//   companyId   String?      @map("company_id")  // ADICIONAR ESTA LINHA
+//   createdAt   DateTime     @default(now())
+//   updatedAt   DateTime     @updatedAt
+//   deletedAt   DateTime?
+//   memberships Membership[]
+//   company     Company?     @relation(fields: [companyId], references: [id]) // ADICIONAR ESTA LINHA
+// }
+
+// Índices para melhor performance
+// Nota: Isso é apenas documentação, os índices já existem nos models
+
+// Enum para Roles (se não existir)
 enum Role {
   MASTER
   ADMIN
@@ -630,3 +638,12 @@ enum Role {
   OPERADOR
   CONSULTOR
 }
+
+// View para facilitar consultas (opcional)
+// view UserWithRoles {
+//   id        String
+//   email     String
+//   name      String?
+//   companyId String?
+//   roles     String[]
+// }
