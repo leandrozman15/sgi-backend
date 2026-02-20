@@ -6,8 +6,25 @@ import { DatabaseService } from '../database/database.service';
 export class ClientService extends BaseService {
   constructor(protected db: DatabaseService) {
     super(db);
-    this.tableName = 'Client';
   }
 
-  // Métodos específicos podem ser adicionados aqui
+  async findByCompany(companyId: string) {
+    return this.findAll(companyId, 'Client');
+  }
+
+  async findById(id: string, companyId: string) {
+    return this.findOne(id, companyId, 'Client');
+  }
+
+  async createItem(data: any, companyId: string) {
+    return this.create(data, companyId, 'Client');
+  }
+
+  async updateItem(id: string, data: any, companyId: string) {
+    return this.update(id, data, companyId, 'Client');
+  }
+
+  async deleteItem(id: string, companyId: string) {
+    return this.remove(id, companyId, 'Client');
+  }
 }

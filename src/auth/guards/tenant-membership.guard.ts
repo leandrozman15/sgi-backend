@@ -1,60 +1,32 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
-import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class TenantMembershipGuard implements CanActivate {
-  constructor(
-    private db: DatabaseService,
-    private reflector: Reflector,
-  ) {}
+  constructor(private db: DatabaseService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+    const companyId = request.params.companyId || request.body.companyId;
 
-    if (isPublic) return true;
-
-    const req = context.switchToHttp().getRequest();
-    const user = req.user;
-    
-    if (!user?.uid) {
-      throw new UnauthorizedException('Usuário não autenticado');
+    if (!user || !companyId) {
+      throw new ForbiddenException('Acesso negado');
     }
 
-    const companyId = req.headers['x-company-id'] as string;
+    try {
+      // Verificar se o usuário pertence à empresa
+      const sql = 'SELECT * FROM user_companies WHERE user_id = $1 AND company_id = $2';
+      const result = await this.db.query(sql, [user.uid, companyId]);
 
-    if (!companyId) {
+      if (result.rows.length === 0) {
+        throw new ForbiddenException('Usuário não pertence a esta empresa');
+      }
+
       return true;
+    } catch (error) {
+      console.error('Erro ao verificar permissão de empresa:', error);
+      throw new ForbiddenException('Erro ao verificar permissão de empresa');
     }
-
-    // Buscar membresía con SQL directo
-    const sql = `
-      SELECT m.*, 
-             row_to_json(c.*) as company
-      FROM "Membership" m
-      JOIN "Company" c ON c.id = m."companyId"
-      WHERE m."userId" = $1 
-        AND m."companyId" = $2 
-        AND m."deletedAt" IS NULL
-    `;
-    
-    const membership = await this.db.queryOne(sql, [user.uid, companyId]);
-
-    if (!membership) {
-      throw new ForbiddenException('Usuário não pertence a esta empresa');
-    }
-
-    req.tenant = {
-      uid: user.uid,
-      email: user.email,
-      companyId,
-      roles: membership.roles,
-    };
-
-    return true;
   }
 }

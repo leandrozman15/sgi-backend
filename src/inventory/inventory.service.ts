@@ -6,8 +6,25 @@ import { DatabaseService } from '../database/database.service';
 export class InventoryMovementService extends BaseService {
   constructor(protected db: DatabaseService) {
     super(db);
-    this.tableName = 'InventoryMovement';
   }
 
-  // Métodos específicos podem ser adicionados aqui
+  async findByCompany(companyId: string) {
+    return this.findAll(companyId, 'InventoryMovement');
+  }
+
+  async findById(id: string, companyId: string) {
+    return this.findOne(id, companyId, 'InventoryMovement');
+  }
+
+  async createItem(data: any, companyId: string) {
+    return this.create(data, companyId, 'InventoryMovement');
+  }
+
+  async updateItem(id: string, data: any, companyId: string) {
+    return this.update(id, data, companyId, 'InventoryMovement');
+  }
+
+  async deleteItem(id: string, companyId: string) {
+    return this.remove(id, companyId, 'InventoryMovement');
+  }
 }

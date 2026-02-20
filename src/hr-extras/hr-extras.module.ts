@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
-import { HrExtrasService } from './hr-extras.service';
+import { DatabaseModule } from '../database/database.module';
+import { WorkAccidentService } from './hr-extras.service';
 import { WorkAccidentController } from './hr-extras.controller';
 
 @Module({
+  imports: [DatabaseModule],
   controllers: [WorkAccidentController],
-  providers: [HrExtrasService],
-  exports: [HrExtrasService],
+  providers: [WorkAccidentService],
+  exports: [WorkAccidentService]
 })
-export class HrExtrasModule {}
+export class WorkAccidentModule {}

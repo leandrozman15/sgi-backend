@@ -15,131 +15,247 @@ export class InternalService {
   ) {}
 
   async listUsers() {
-    const usersResult = await this.auth.listUsers(100);
-    return usersResult.users.map(u => ({
-      uid: u.uid,
-      email: u.email,
-      displayName: u.displayName,
-      providers: u.providerData.map(p => p.providerId),
-      createdAt: u.metadata.creationTime,
-      lastLogin: u.metadata.lastSignInTime,
-    }));
+    try {
+      const usersResult = await this.auth.listUsers(100);
+      return usersResult.users.map(user => ({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        providers: user.providerData.map(p => p.providerId),
+        createdAt: user.metadata.creationTime,
+        lastLogin: user.metadata.lastSignInTime,
+      }));
+    } catch (error) {
+      this.logger.error('Erro ao listar usuários:', error);
+      throw new InternalServerErrorException('Erro ao listar usuários');
+    }
   }
 
   async listCompanies() {
-    const sql = `
-      SELECT c.*, 
-             json_agg(json_build_object(
-               'user', json_build_object(
-                 'id', u.id,
-                 'email', u.email
-               )
-             )) as memberships
-      FROM "Company" c
-      LEFT JOIN "Membership" m ON m."companyId" = c.id AND m."deletedAt" IS NULL
-      LEFT JOIN "User" u ON u.id = m."userId" AND u."deletedAt" IS NULL
-      WHERE c."deletedAt" IS NULL
-      GROUP BY c.id
-      ORDER BY c."createdAt" DESC
-    `;
-    return this.db.queryRows(sql);
+    try {
+      const sql = `SELECT * FROM companies ORDER BY name`;
+      const result = await this.db.query(sql);
+      return result.rows;
+    } catch (error) {
+      this.logger.error('Erro ao listar empresas:', error);
+      throw new InternalServerErrorException('Erro ao listar empresas');
+    }
+  }
+
+  async getUserByEmail(email: string) {
+    try {
+      const user = await this.auth.getUserByEmail(email);
+      return {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        providers: user.providerData.map(p => p.providerId),
+        createdAt: user.metadata.creationTime,
+        lastLogin: user.metadata.lastSignInTime,
+      };
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        return null;
+      }
+      this.logger.error('Erro ao buscar usuário por email:', error);
+      throw new InternalServerErrorException('Erro ao buscar usuário');
+    }
   }
 
   async bootstrapCompany(dto: BootstrapCompanyDto) {
     const { companyName, ownerEmail, ownerName, cnpj } = dto;
-    
-    this.logger.log(`Bootstrapping company: ${companyName} for owner: ${ownerEmail}`);
 
-    let firebaseUser;
-    let isNewUser = false;
-    
-    try {
-      firebaseUser = await this.auth.getUserByEmail(ownerEmail);
-      this.logger.log(`Usuario existente encontrado: ${firebaseUser.uid}`);
-    } catch (error) {
-      if (error.code === 'auth/user-not-found') {
-        firebaseUser = await this.auth.createUser({
-          email: ownerEmail,
-          displayName: ownerName,
-          emailVerified: false,
-        });
-        isNewUser = true;
-        this.logger.log(`Nuevo usuario creado: ${firebaseUser.uid}`);
-      } else {
-        throw new InternalServerErrorException('Error al verificar usuario en Firebase');
-      }
+    if (!companyName || !ownerEmail) {
+      throw new BadRequestException('companyName e ownerEmail são obrigatórios');
     }
 
-    const uid = firebaseUser.uid;
+    const client = await this.db.query('BEGIN');
 
-    // Usar transacción manual
-    const client = await this.db.beginTransaction();
-    
     try {
-      // Crear usuario
-      const userSql = `
-        INSERT INTO "User" (id, email, password, "createdAt", "updatedAt")
-        VALUES ($1, $2, $3, NOW(), NOW())
-        ON CONFLICT (id) DO UPDATE SET email = $2
-        RETURNING *
-      `;
-      const user = await client.query(userSql, [uid, ownerEmail, Math.random().toString(36).slice(-8)]);
-      
-      // Crear empresa
+      // 1. Criar empresa
       const companySql = `
-        INSERT INTO "Company" (id, name, "subscriptionPlan", "subscriptionStatus", "subscriptionSince", "subscriptionRenewal", "createdAt", "updatedAt")
-        VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW() + INTERVAL '30 days', NOW(), NOW())
-        RETURNING *
+        INSERT INTO companies (name, cnpj, created_at, updated_at)
+        VALUES ($1, $2, NOW(), NOW())
+        RETURNING id
       `;
-      const company = await client.query(companySql, [companyName, 'FREE', 'ACTIVE']);
-      
-      // Crear membresía
-      const membershipSql = `
-        INSERT INTO "Membership" (id, "userId", "companyId", roles, "createdAt", "updatedAt")
-        VALUES (gen_random_uuid(), $1, $2, $3, NOW(), NOW())
-        RETURNING *
-      `;
-      const membership = await client.query(membershipSql, [user.rows[0].id, company.rows[0].id, ['owner', 'admin']]);
-      
-      await this.db.commitTransaction(client);
+      const companyResult = await this.db.query(companySql, [companyName, cnpj || null]);
+      const companyId = companyResult.rows[0].id;
 
-      const result = {
-        company: company.rows[0],
-        user: user.rows[0],
-        membership: membership.rows[0],
-      };
-
-      let activationLink = null;
-      if (isNewUser) {
-        const publicUrl = this.config.get<string>('APP_PUBLIC_URL') || 'http://localhost:3000';
-        activationLink = await this.auth.generatePasswordResetLink(ownerEmail, {
-          url: `${publicUrl}/login?mode=resetPassword`,
-          handleCodeInApp: true,
-        });
+      // 2. Verificar se o usuário já existe no Firebase
+      let userRecord;
+      let isNewUser = false;
+      try {
+        userRecord = await this.auth.getUserByEmail(ownerEmail);
+      } catch (error) {
+        if (error.code === 'auth/user-not-found') {
+          // Se não existir, criamos um usuário
+          isNewUser = true;
+          userRecord = await this.auth.createUser({
+            email: ownerEmail,
+            displayName: ownerName || `Admin ${companyName}`,
+            password: Math.random().toString(36).slice(-8), // Senha temporária
+          });
+        } else {
+          throw error;
+        }
       }
+
+      // 3. Definir claims do usuário
+      await this.auth.setCustomUserClaims(userRecord.uid, {
+        role: 'ADMIN',
+        companyId,
+        permissions: [
+          'companies:read', 'companies:write',
+          'users:manage',
+          'production:read', 'production:write',
+          'financial:read', 'financial:approve'
+        ]
+      });
+
+      // 4. Vincular usuário à empresa
+      const userCompanySql = `
+        INSERT INTO user_companies (user_id, company_id, role, created_at)
+        VALUES ($1, $2, $3, NOW())
+      `;
+      await this.db.query(userCompanySql, [userRecord.uid, companyId, 'ADMIN']);
+
+      await this.db.query('COMMIT');
+
+      // 5. Gerar link de ativação (para frontend)
+      const activationLink = isNewUser 
+        ? `${process.env.FRONTEND_URL}/ativar-conta?email=${encodeURIComponent(ownerEmail)}&company=${encodeURIComponent(companyName)}`
+        : null;
 
       return {
-        success: true,
         company: {
-          id: result.company.id,
-          name: result.company.name,
+          id: companyId,
+          name: companyName,
+          cnpj: cnpj || null
         },
         owner: {
-          uid: result.user.id,
-          email: result.user.email,
+          uid: userRecord.uid,
+          email: ownerEmail,
+          name: ownerName || null,
+          isNewUser
         },
-        membership: result.membership,
         activationLink,
+        message: 'Empresa criada com sucesso'
       };
     } catch (error) {
-      await this.db.rollbackTransaction(client);
-      this.logger.error('Error en bootstrap:', error);
+      await this.db.query('ROLLBACK');
+      this.logger.error('Erro ao criar empresa:', error);
       
       if (error.code === '23505') { // Unique violation
-        throw new ConflictException('Ya existe una empresa con esos datos');
+        throw new ConflictException('Empresa já existe');
       }
+      throw new InternalServerErrorException('Erro ao criar empresa');
+    }
+  }
+
+  async getCompanyStats(companyId: string) {
+    try {
+      const stats = {
+        employees: 0,
+        machines: 0,
+        orders: 0,
+        revenue: 0
+      };
+
+      // Total de funcionários
+      const employeesResult = await this.db.query(
+        'SELECT COUNT(*) as count FROM employees WHERE company_id = $1',
+        [companyId]
+      );
+      stats.employees = parseInt(employeesResult.rows[0]?.count || '0');
+
+      // Total de máquinas
+      const machinesResult = await this.db.query(
+        'SELECT COUNT(*) as count FROM machines WHERE company_id = $1',
+        [companyId]
+      );
+      stats.machines = parseInt(machinesResult.rows[0]?.count || '0');
+
+      // Total de ordens de produção
+      const ordersResult = await this.db.query(
+        'SELECT COUNT(*) as count FROM production_orders WHERE company_id = $1',
+        [companyId]
+      );
+      stats.orders = parseInt(ordersResult.rows[0]?.count || '0');
+
+      // Receita total
+      const revenueResult = await this.db.query(
+        'SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions WHERE company_id = $1 AND type = $2',
+        [companyId, 'revenue']
+      );
+      stats.revenue = parseFloat(revenueResult.rows[0]?.total || '0');
+
+      return stats;
+    } catch (error) {
+      this.logger.error('Erro ao buscar estatísticas:', error);
+      throw new InternalServerErrorException('Erro ao buscar estatísticas');
+    }
+  }
+
+  async getSystemHealth() {
+    try {
+      // Verificar banco de dados
+      await this.db.query('SELECT 1');
       
-      throw new InternalServerErrorException('Error al crear la empresa en la base de datos');
+      // Verificar Firebase
+      await this.auth.listUsers(1);
+
+      return {
+        status: 'healthy',
+        database: 'connected',
+        firebase: 'connected',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      this.logger.error('Erro na verificação de saúde:', error);
+      return {
+        status: 'unhealthy',
+        database: error.message?.includes('db') ? 'disconnected' : 'connected',
+        firebase: error.message?.includes('auth') ? 'disconnected' : 'connected',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async deleteUser(uid: string) {
+    try {
+      await this.auth.deleteUser(uid);
+      
+      // Remover vínculos com empresas
+      await this.db.query('DELETE FROM user_companies WHERE user_id = $1', [uid]);
+      
+      return { message: 'Usuário deletado com sucesso' };
+    } catch (error) {
+      this.logger.error('Erro ao deletar usuário:', error);
+      throw new InternalServerErrorException('Erro ao deletar usuário');
+    }
+  }
+
+  async deleteCompany(companyId: string) {
+    const client = await this.db.query('BEGIN');
+
+    try {
+      // Buscar todos os usuários da empresa
+      const usersResult = await this.db.query(
+        'SELECT user_id FROM user_companies WHERE company_id = $1',
+        [companyId]
+      );
+
+      // Deletar empresa
+      await this.db.query('DELETE FROM companies WHERE id = $1', [companyId]);
+
+      await this.db.query('COMMIT');
+
+      return { message: 'Empresa deletada com sucesso' };
+    } catch (error) {
+      await this.db.query('ROLLBACK');
+      this.logger.error('Erro ao deletar empresa:', error);
+      throw new InternalServerErrorException('Erro ao deletar empresa');
     }
   }
 }

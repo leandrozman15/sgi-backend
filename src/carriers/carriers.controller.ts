@@ -1,36 +1,47 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
 import { CarrierService } from './carriers.service';
-import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
-import { TenantMembershipGuard } from '../auth/guards/tenant-membership.guard';
-import { Tenant } from '../auth/decorators/tenant.decorator';
+import { AuthGuard } from '../common/guards/auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../types/roles';
+import { Tenant } from '../common/decorators/tenant.decorator';
 
 @Controller('carriers')
-@UseGuards(FirebaseAuthGuard, TenantMembershipGuard)
+@UseGuards(AuthGuard, RolesGuard)
 export class CarrierController {
-  constructor(private readonly carrierService: CarrierService) {}
+  constructor(private readonly service: CarrierService) {}
 
   @Get()
-  findAll(@Tenant('companyId') companyId: string) {
-    return this.carrierService.findAll(companyId);
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async findAll(@Tenant() companyId: string) {
+    return this.service.findByCompany(companyId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Tenant('companyId') companyId: string) {
-    return this.carrierService.findOne(id, companyId);
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async findOne(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.findById(id, companyId);
   }
 
   @Post()
-  create(@Body() createDto: any, @Tenant('companyId') companyId: string) {
-    return this.carrierService.create(createDto, companyId);
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async create(@Body() createDto: any, @Tenant() companyId: string) {
+    return this.service.createItem(createDto, companyId);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDto: any, @Tenant('companyId') companyId: string) {
-    return this.carrierService.update(id, updateDto, companyId);
+  @Put(':id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async update(
+    @Param('id') id: string,
+    @Body() updateDto: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.updateItem(id, updateDto, companyId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Tenant('companyId') companyId: string) {
-    return this.carrierService.remove(id, companyId);
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async remove(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.deleteItem(id, companyId);
   }
 }
