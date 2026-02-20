@@ -1,0 +1,591 @@
+generator client {
+  provider = "prisma-client-js"
+  // engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id                String              @id @default(cuid())
+  name              String
+  subscriptionPlan   PlanType?           @default(FREE)
+  subscriptionStatus SubscriptionStatus? @default(TRIAL)
+  subscriptionSince  DateTime?
+  subscriptionRenewal DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  deletedAt         DateTime?
+  
+  AuditLog          AuditLog[]
+  Carrier           Carrier[]
+  Client            Client[]
+  Employee          Employee[]
+  InventoryMovement InventoryMovement[]
+  Machine           Machine[]
+  memberships       Membership[]
+  Product           Product[]
+  ProductionOrder   ProductionOrder[]
+  RawMaterial       RawMaterial[]
+  Sale              Sale[]
+  Supplier          Supplier[]
+  WarehouseLocation WarehouseLocation[]
+  BankTransaction   BankTransaction[]
+  SalaryPayment     SalaryPayment[]
+  TaxServicePayment TaxServicePayment[]
+  Vacation          Vacation[]
+  EpiDelivery       EpiDelivery[]
+  AttendanceRecord  AttendanceRecord[]
+  WorkAccident      WorkAccident[]
+  PurchaseRequest   PurchaseRequest[]
+  QualityInspection QualityInspection[]
+  Complaint         Complaint[]
+  Calibration       Calibration[]
+  SaleQuote         SaleQuote[]
+  UpgradeRequest    UpgradeRequest[]
+  Invoice           Invoice[]
+  SubscriptionHistory SubscriptionHistory[]
+
+  @@index([deletedAt])
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String?
+  password    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  memberships Membership[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  roles     String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  company   Company  @relation(fields: [companyId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, companyId])
+  @@index([deletedAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  companyId String
+  user      String
+  module    String
+  action    String
+  data      Json?
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+  Company   Company  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([timestamp])
+}
+
+model Carrier {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  Company   Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  Company   Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model Employee {
+  id          String    @id @default(cuid())
+  companyId   String
+  name        String
+  email       String
+  role        String?
+  accessLevel String?
+  hasAccess   Boolean?   @default(false)
+  data        Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  Company     Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model InventoryMovement {
+  id        String   @id @default(cuid())
+  companyId String
+  type      String
+  productId String?
+  quantity  Float
+  unitPrice Float?
+  total     Float?
+  data      Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  Company   Company  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([deletedAt])
+}
+
+model Machine {
+  id        String    @id @default(cuid())
+  companyId String
+  name      String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  Company   Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model Product {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  sku       String?
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  Company   Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model ProductionOrder {
+  id             String    @id @default(cuid())
+  companyId      String
+  orderNumber    String
+  batchNumber    String?
+  client         String
+  status         String    @default("Pendente")
+  priority       String    @default("Média")
+  startDate      DateTime?
+  completionDate DateTime?
+  data           Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  Company        Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([orderNumber])
+}
+
+model RawMaterial {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  Company   Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model Sale {
+  id          String    @id @default(cuid())
+  companyId   String
+  saleNumber  String    @unique
+  clientName  String?
+  total       Float?
+  status      String    @default("DRAFT")
+  data        Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  Company     Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model Supplier {
+  id        String    @id @default(cuid())
+  companyId String
+  nome      String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  Company   Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model WarehouseLocation {
+  id         String   @id @default(cuid())
+  companyId  String
+  locationId String
+  data       Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  Company    Company  @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, locationId])
+  @@index([companyId])
+  @@index([deletedAt])
+}
+
+enum PlanType {
+  FREE
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  PENDING_PAYMENT
+  PENDING_UPGRADE
+  TRIAL
+}
+
+model BankTransaction {
+  id            String    @id @default(cuid())
+  companyId     String
+  description   String
+  amount        Float
+  type          String
+  category      String?
+  date          DateTime
+  bankAccount    String?
+  documentNumber String?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([date])
+}
+
+model SalaryPayment {
+  id            String    @id @default(cuid())
+  companyId     String
+  employeeId    String
+  employeeName  String
+  amount        Float
+  paymentDate   DateTime
+  referenceMonth String
+  paymentMethod String?
+  status        String    @default("PENDING")
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model TaxServicePayment {
+  id            String    @id @default(cuid())
+  companyId     String
+  description   String
+  amount        Float
+  dueDate       DateTime
+  paymentDate   DateTime?
+  status        String    @default("PENDING")
+  documentNumber String?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([dueDate])
+}
+
+model Vacation {
+  id            String    @id @default(cuid())
+  companyId     String
+  employeeId    String
+  employeeName  String
+  startDate     DateTime
+  endDate       DateTime
+  daysCount     Int
+  type          String
+  status        String    @default("SCHEDULED")
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model EpiDelivery {
+  id            String    @id @default(cuid())
+  companyId     String
+  employeeId    String
+  employeeName  String
+  epiName       String
+  caNumber      String?
+  deliveryDate  DateTime
+  quantity      Int       @default(1)
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model AttendanceRecord {
+  id            String    @id @default(cuid())
+  companyId     String
+  employeeId    String
+  employeeName  String
+  date          DateTime
+  entryTime     String?
+  exitTime      String?
+  lunchStart    String?
+  lunchEnd      String?
+  overtime      Float?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, employeeId, date])
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model WorkAccident {
+  id            String    @id @default(cuid())
+  companyId     String
+  employeeId    String
+  employeeName  String
+  accidentDate  DateTime
+  description   String
+  severity      String
+  bodyPart      String?
+  lostDays      Int?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model PurchaseRequest {
+  id            String    @id @default(cuid())
+  companyId     String
+  requestNumber String    @unique
+  requesterName String
+  department    String?
+  items         Json
+  totalAmount   Float
+  status        String    @default("DRAFT")
+  approvalDate  DateTime?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([status])
+}
+
+model QualityInspection {
+  id            String    @id @default(cuid())
+  companyId     String
+  productId     String?
+  productName   String
+  inspectorName String
+  inspectionDate DateTime
+  result        String
+  criteria      Json
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model Complaint {
+  id            String    @id @default(cuid())
+  companyId     String
+  clientName    String?
+  orderNumber   String?
+  description   String
+  category      String
+  priority      String    @default("MEDIUM")
+  status        String    @default("OPEN")
+  resolutionDate DateTime?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
+model Calibration {
+  id            String    @id @default(cuid())
+  companyId     String
+  equipmentName String
+  equipmentId   String?
+  calibrationDate DateTime
+  nextDueDate   DateTime
+  performedBy   String
+  certificateNumber String?
+  result        String
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([nextDueDate])
+}
+
+model SaleQuote {
+  id            String    @id @default(cuid())
+  companyId     String
+  quoteNumber   String    @unique
+  clientName    String
+  clientId      String?
+  items         Json
+  subtotal      Float
+  discount      Float     @default(0)
+  total         Float
+  validUntil    DateTime
+  status        String    @default("DRAFT")
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([status])
+}
+
+model UpgradeRequest {
+  id            String    @id @default(cuid())
+  companyId     String
+  currentPlan   PlanType
+  requestedPlan PlanType
+  reason        String?
+  status        String    @default("PENDING")
+  approvedAt    DateTime?
+  approvedBy    String?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([status])
+}
+
+model Invoice {
+  id            String    @id @default(cuid())
+  companyId     String
+  invoiceNumber String    @unique
+  amount        Float
+  dueDate       DateTime
+  paidAt        DateTime?
+  status        String    @default("PENDING")
+  paymentMethod String?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+  @@index([status])
+}
+
+model SubscriptionHistory {
+  id            String    @id @default(cuid())
+  companyId     String
+  plan          PlanType
+  status        SubscriptionStatus
+  startedAt     DateTime
+  endedAt       DateTime?
+  data          Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  Company       Company   @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, deletedAt])
+  @@index([companyId])
+}
+
