@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get } from '@nestjs/common';
 import { InternalService } from './internal.service';
 import { BootstrapCompanyDto } from './dto/bootstrap-company.dto';
 
@@ -9,5 +9,15 @@ export class InternalController {
   @Post('bootstrap-company')
   async bootstrapCompany(@Body() dto: BootstrapCompanyDto) {
     return this.internalService.bootstrapCompany(dto);
+  }
+
+  @Get('users')
+  async getUsers() {
+    return this.internalService.getUsers();
+  }
+
+  @Get('companies')
+  async getCompanies() {
+    return this.internalService.getCompanies();
   }
 }
