@@ -1,65 +1,79 @@
 import { Module, Global } from '@nestjs/common';
 import * as admin from 'firebase-admin';
+import * as fs from 'fs';
 
 @Global()
 @Module({
   providers: [
     {
-      provide: 'FIREBASE_ADMIN',
+      provide: 'FIREBASE_APP',
       useFactory: () => {
-        console.log('📌 Inicializando Firebase Admin (una sola vez)...');
-        
-        // Verificar si ya está inicializado
+        console.log('📌 Inicializando Firebase Admin (singleton)...');
+
         if (admin.apps.length > 0) {
           console.log('✅ Firebase Admin ya estaba inicializado');
           return admin.app();
         }
 
-        try {
-          // Verificar que las variables de entorno existen
-          const projectId = process.env.FIREBASE_PROJECT_ID;
-          const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-          const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+        // 1) Prefer Render Secret File
+        const secretPath = '/etc/secrets/firebase-admin.json';
+        if (fs.existsSync(secretPath)) {
+          const raw = fs.readFileSync(secretPath, 'utf8');
+          const serviceAccount = JSON.parse(raw);
 
-          if (!projectId || !clientEmail || !privateKey) {
-            console.error('❌ Variables de Firebase faltantes:');
-            console.error('FIREBASE_PROJECT_ID:', projectId ? '✅' : '❌');
-            console.error('FIREBASE_CLIENT_EMAIL:', clientEmail ? '✅' : '❌');
-            console.error('FIREBASE_PRIVATE_KEY:', privateKey ? '✅' : '❌');
-            throw new Error('Credenciales de Firebase incompletas');
-          }
+          const app = admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId: serviceAccount.project_id,
+          });
 
-          // Formatear la private key
-          const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
-          
-          console.log('✅ Variables de Firebase OK');
-          console.log('Project ID:', projectId);
-          console.log('Client Email:', clientEmail);
-          console.log('Private Key length:', formattedPrivateKey.length);
+          console.log('✅ Firebase Admin inicializado via Secret File');
+          console.log('📌 Project ID:', serviceAccount.project_id);
+          console.log('📌 Client Email:', serviceAccount.client_email);
 
-          // Inicializar Firebase Admin
-          const credential = admin.credential.cert({
+          return app;
+        }
+
+        // 2) Fallback ENV vars
+        const projectId = process.env.FIREBASE_PROJECT_ID;
+        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+        const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
+
+        if (!projectId || !clientEmail || !privateKeyRaw) {
+          console.error('❌ Variables de Firebase faltantes y no existe Secret File:');
+          console.error('FIREBASE_PROJECT_ID:', projectId ? '✅' : '❌');
+          console.error('FIREBASE_CLIENT_EMAIL:', clientEmail ? '✅' : '❌');
+          console.error('FIREBASE_PRIVATE_KEY:', privateKeyRaw ? '✅' : '❌');
+          throw new Error('Credenciales de Firebase incompletas');
+        }
+
+        const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
+
+        const app = admin.initializeApp({
+          credential: admin.credential.cert({
             projectId,
             clientEmail,
-            privateKey: formattedPrivateKey,
-          });
-          
-          const app = admin.initializeApp({ credential });
-          console.log('✅ Firebase Admin inicializado globalmente');
-          
-          // Probar la conexión
-          admin.auth().listUsers(1)
-            .then(() => console.log('✅ Conexión con Firebase verificada'))
-            .catch(err => console.error('⚠️ Error verificando conexión:', err.message));
-          
-          return app;
-        } catch (error) {
-          console.error('❌ Error inicializando Firebase Admin:', error.message);
-          throw error;
-        }
+            privateKey,
+          }),
+          projectId,
+        });
+
+        console.log('✅ Firebase Admin inicializado via ENV');
+        console.log('📌 Project ID:', projectId);
+        console.log('📌 Client Email:', clientEmail);
+
+        return app;
       },
     },
+
+    {
+      provide: 'FIREBASE_AUTH',
+      useFactory: (app: admin.app.App) => {
+        // Ensure app exists; return auth bound to that app
+        return app.auth();
+      },
+      inject: ['FIREBASE_APP'],
+    },
   ],
-  exports: ['FIREBASE_ADMIN'],
+  exports: ['FIREBASE_APP', 'FIREBASE_AUTH'],
 })
 export class FirebaseModule {}
