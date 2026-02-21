@@ -5,9 +5,9 @@ import { DatabaseModule } from "./database/database.module";
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 
-// --- Módulos de Funcionalidades (Lista completa del archivo de backup) ---
-// La estructura de carpetas es './<nombre>/<nombre>.module'
+// --- Módulos de Funcionalidades ---
 import { CompanyModule } from './companies/companies.module';
+import { UserModule } from './users/users.module'; // ✅ AÑADIDO DE VUELTA: Esencial para la gestión de usuarios.
 import { MembershipModule } from './memberships/memberships.module';
 import { AuditLogModule } from './audit-logs/audit-logs.module';
 import { CarrierModule } from './carriers/carriers.module';
@@ -24,6 +24,7 @@ import { PurchaseRequestModule } from './purchase-requests/purchase-requests.mod
 
 
 // --- Guards de Seguridad Globales ---
+import { FirebaseAuthGuard } from './auth/firebase-auth.guard'; // ✅ AÑADIDO DE VUELTA: El guard de autenticación principal.
 import { TenantMembershipGuard } from './auth/guards/tenant-membership.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -35,8 +36,9 @@ import { RolesGuard } from './auth/guards/roles.guard';
     AuthModule,
     HealthModule,
 
-    // Módulos de Funcionalidades (limpios y sin duplicados)
+    // Módulos de Funcionalidades
     CompanyModule,
+    UserModule, // ✅ AÑADIDO DE VUELTA
     MembershipModule,
     AuditLogModule,
     CarrierModule,
@@ -52,9 +54,14 @@ import { RolesGuard } from './auth/guards/roles.guard';
     PurchaseRequestModule,
   ],
   providers: [
-    // Configuración de Guards Globales (CRÍTICO)
-    // Esto aplica la seguridad a todas las rutas de la aplicación.
-    
+    // La seguridad se aplica en este orden para cada petición:
+    // 1. FirebaseAuthGuard: ¿Es un usuario válido de Firebase?
+    // 2. TenantMembershipGuard: ¿Pertenece a la empresa que intenta acceder?
+    // 3. RolesGuard: ¿Tiene el rol necesario (ej. "admin")?
+    {
+      provide: APP_GUARD,
+      useClass: FirebaseAuthGuard, // ✅ AÑADIDO DE VUELTA
+    },
     {
       provide: APP_GUARD,
       useClass: TenantMembershipGuard,
