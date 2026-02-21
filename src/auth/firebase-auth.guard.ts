@@ -41,17 +41,21 @@ export class FirebaseAuthGuard implements CanActivate {
     this.logger.log(`✅ Firebase Admin initialized (projectId=${projectId})`);
   }
 
+  /**
+   * Decodifica el payload del JWT SIN verificar firma.
+   * Solo para diagnóstico (aud/iss/exp).
+   */
   private decodeJwtPayload(token: string): any | null {
     try {
       const parts = token.split('.');
       if (parts.length < 2) return null;
 
-      const payloadB64 = parts[1]
+      const payload = parts[1]
         .replace(/-/g, '+')
         .replace(/_/g, '/')
         .padEnd(Math.ceil(parts[1].length / 4) * 4, '=');
 
-      const json = Buffer.from(payloadB64, 'base64').toString('utf8');
+      const json = Buffer.from(payload, 'base64').toString('utf8');
       return JSON.parse(json);
     } catch {
       return null;
@@ -74,41 +78,48 @@ export class FirebaseAuthGuard implements CanActivate {
 
     const token = authHeader.substring(7).trim();
 
+    // Diagnóstico rápido (sin exponer token)
+    const payload = this.decodeJwtPayload(token);
+    if (payload) {
+      this.logger.debug(`Backend FIREBASE_PROJECT_ID=${process.env.FIREBASE_PROJECT_ID}`);
+      this.logger.debug(`JWT aud=${payload.aud}`);
+      this.logger.debug(`JWT iss=${payload.iss}`);
+      this.logger.debug(`JWT sub=${payload.sub}`);
+      this.logger.debug(`JWT iat=${payload.iat} exp=${payload.exp}`);
+    } else {
+      this.logger.debug('No pude decodificar el payload del JWT');
+    }
+
     try {
-      // 1) Garantizar init SIEMPRE antes de verificar token
+      // 1) Garantizar init antes de verifyIdToken
       this.ensureFirebaseAdminInit();
 
-      // 2) Log de diagnóstico (sin exponer token completo)
-      const payload = this.decodeJwtPayload(token);
-      const backendProjectId = process.env.FIREBASE_PROJECT_ID;
-
-      if (payload) {
-        this.logger.debug(
-          `JWT payload: aud=${payload.aud} iss=${payload.iss} exp=${payload.exp} iat=${payload.iat} sub=${payload.sub}`,
-        );
-        this.logger.debug(`Backend FIREBASE_PROJECT_ID=${backendProjectId}`);
-      } else {
-        this.logger.debug('No pude decodificar el payload del JWT');
-      }
-
-      // 3) Verificar con Firebase Admin
+      // 2) Verificar con Firebase Admin
       const decoded = await admin.auth().verifyIdToken(token);
 
       request.user = {
         uid: decoded.uid,
         email: decoded.email,
-        // Deja esto por si luego querés roles desde claims:
-        role: (decoded as any).role || null,
+        role: (decoded as any).role || null, // por si luego usás custom claims
         claims: decoded,
       };
 
       return true;
     } catch (err: any) {
-      // Log útil del error real
-      this.logger.warn(
-        `verifyIdToken failed: ${err?.code || ''} ${err?.message || err}`,
-      );
-      throw new UnauthorizedException('Token inválido ou expirado');
+      const msg = err?.message || String(err);
+      const code = err?.code || err?.errorInfo?.code || '';
+
+      // Logs útiles (Render logs)
+      this.logger.warn(`verifyIdToken failed: ${code} ${msg}`);
+
+      if (err?.errorInfo) {
+        try {
+          this.logger.warn(`verifyIdToken errorInfo: ${JSON.stringify(err.errorInfo)}`);
+        } catch {}
+      }
+
+      // IMPORTANTÍSIMO: devolvemos la causa real para destrabar
+      throw new UnauthorizedException(`Token inválido: ${code} ${msg}`);
     }
   }
 }
