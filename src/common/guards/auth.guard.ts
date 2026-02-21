@@ -1,10 +1,8 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject } from '@nestjs/common';
-import { app } from 'firebase-admin';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import * as admin from 'firebase-admin';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(@Inject('FIREBASE_ADMIN') private firebaseApp: app.App) {}
-
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const token = this.extractToken(request);
@@ -13,8 +11,13 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Token de autenticação ausente');
     }
 
+    // Garantir que o Firebase Admin está inicializado
+    if (admin.apps.length === 0) {
+      throw new UnauthorizedException('Firebase Admin não inicializado. Verifique as credenciais.');
+    }
+
     try {
-      const decodedToken = await this.firebaseApp.auth().verifyIdToken(token);
+      const decodedToken = await admin.auth().verifyIdToken(token);
       console.log('✅ Token válido para:', decodedToken.email);
       
       request.user = {
@@ -25,7 +28,7 @@ export class AuthGuard implements CanActivate {
       };
       return true;
     } catch (error) {
-      console.error('❌ Error validando token:', error.message);
+      console.error('❌ Erro validando token:', error.message);
       throw new UnauthorizedException('Token inválido: ' + error.message);
     }
   }
