@@ -19,14 +19,22 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const tenant = request.tenant;
 
-    if (!tenant || !tenant.roles) {
-      throw new ForbiddenException('Informações de tenant não encontradas');
+    if (!tenant || !tenant.roles || !Array.isArray(tenant.roles)) {
+      // Modificado para también verificar que roles sea un array
+      throw new ForbiddenException('Informações de tenant ou roles não encontradas no token');
     }
 
-    const hasRole = requiredRoles.some(role => tenant.roles.includes(role));
+    // ===== INICIO DE LA CORRECCIÓN =====
+    // Convertimos los roles del usuario a mayúsculas para una comparación insensible.
+    const userRoles = tenant.roles.map(role => String(role).toUpperCase());
+
+    // Comparamos si alguno de los roles requeridos (también en mayúsculas) está en la lista de roles del usuario.
+    const hasRole = requiredRoles.some(requiredRole => userRoles.includes(requiredRole.toUpperCase()));
+    // ===== FIN DE LA CORRECCIÓN =====
     
     if (!hasRole) {
-      throw new ForbiddenException('Permissão insuficiente');
+      // Mensaje de error mejorado para depuración
+      throw new ForbiddenException(`Acesso negado. Requer uma destas roles: ${requiredRoles.join(', ')}`);
     }
 
     return true;
