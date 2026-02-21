@@ -7,7 +7,7 @@ import { HealthModule } from './health/health.module';
 
 // --- Módulos de Funcionalidades ---
 import { CompanyModule } from './companies/companies.module';
-import { UserModule } from './users/users.module'; // ✅ AÑADIDO DE VUELTA: Esencial para la gestión de usuarios.
+import { UserModule } from './users/users.module';
 import { MembershipModule } from './memberships/memberships.module';
 import { AuditLogModule } from './audit-logs/audit-logs.module';
 import { CarrierModule } from './carriers/carriers.module';
@@ -22,9 +22,11 @@ import { SupplierModule } from './suppliers/suppliers.module';
 import { WarehouseLocationModule } from './warehouse/warehouse.module';
 import { PurchaseRequestModule } from './purchase-requests/purchase-requests.module';
 
+// ✅ IMPORTAR INTERNAL MODULE
+import { InternalModule } from './internal/internal.module';
 
-// --- Guards de Seguridad Globales ---
-import { FirebaseAuthGuard } from './auth/firebase-auth.guard'; // ✅ AÑADIDO DE VUELTA: El guard de autenticación principal.
+// --- Guards ---
+import { FirebaseAuthGuard } from './auth/firebase-auth.guard';
 import { TenantMembershipGuard } from './auth/guards/tenant-membership.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -38,7 +40,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 
     // Módulos de Funcionalidades
     CompanyModule,
-    UserModule, // ✅ AÑADIDO DE VUELTA
+    UserModule,
     MembershipModule,
     AuditLogModule,
     CarrierModule,
@@ -52,15 +54,14 @@ import { RolesGuard } from './auth/guards/roles.guard';
     SupplierModule,
     WarehouseLocationModule,
     PurchaseRequestModule,
+    
+    // ✅ AGREGAR INTERNAL MODULE AQUÍ
+    InternalModule,
   ],
   providers: [
-    // La seguridad se aplica en este orden para cada petición:
-    // 1. FirebaseAuthGuard: ¿Es un usuario válido de Firebase?
-    // 2. TenantMembershipGuard: ¿Pertenece a la empresa que intenta acceder?
-    // 3. RolesGuard: ¿Tiene el rol necesario (ej. "admin")?
     {
       provide: APP_GUARD,
-      useClass: FirebaseAuthGuard, // ✅ AÑADIDO DE VUELTA
+      useClass: FirebaseAuthGuard,
     },
     {
       provide: APP_GUARD,
