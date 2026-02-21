@@ -23,7 +23,12 @@ async function bootstrap() {
       'https://studio--base-17793905-8ce2e.us-central1.hosted.app', // Firebase Hosting
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Añadimos 'x-company-id' a la lista de cabeceras permitidas.
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-company-id'],
+    // --- FIN DE LA CORRECCIÓN ---
+
     credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 204,
