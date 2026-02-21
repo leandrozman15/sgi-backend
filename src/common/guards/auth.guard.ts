@@ -11,9 +11,22 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Token de autenticação ausente');
     }
 
-    // Garantir que o Firebase Admin está inicializado
+    // ✅ INICIALIZAR Firebase Admin si no está inicializado
     if (admin.apps.length === 0) {
-      throw new UnauthorizedException('Firebase Admin não inicializado. Verifique as credenciais.');
+      try {
+        console.log('📌 Inicializando Firebase Admin en AuthGuard...');
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+          }),
+        });
+        console.log('✅ Firebase Admin inicializado en AuthGuard');
+      } catch (error) {
+        console.error('❌ Error inicializando Firebase Admin:', error);
+        throw new UnauthorizedException('Error en configuración de autenticación');
+      }
     }
 
     try {
@@ -28,8 +41,8 @@ export class AuthGuard implements CanActivate {
       };
       return true;
     } catch (error) {
-      console.error('❌ Erro validando token:', error.message);
-      throw new UnauthorizedException('Token inválido: ' + error.message);
+      console.error('❌ Error validando token:', error.message);
+      throw new UnauthorizedException('Token inválido ou expirado');
     }
   }
 
