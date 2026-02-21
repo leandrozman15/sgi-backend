@@ -5,17 +5,19 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { UsersModule } from './modules/users/users.module';
-import { FirebaseModule } from './firebase/firebase.module'; // ✅ NUEVO
+import { FirebaseModule } from './firebase/firebase.module';
+import { InternalModule } from './internal/internal.module';
 
 @Module({
   imports: [
     HealthModule,
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
-    FirebaseModule, // ✅ AGREGADO - Inicializa Firebase Admin globalmente
+    FirebaseModule,
     AuthModule,
     CompaniesModule,
     UsersModule,
+    InternalModule,  // ← AGREGADO
   ],
 })
 export class AppModule {}
