@@ -19,11 +19,18 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user) {
-      throw new ForbiddenException('Usuário não autenticado');
+    if (!user || !user.role) { // Verificamos también que el rol exista
+      throw new ForbiddenException('Usuário não autenticado ou sem role definida no token');
     }
 
-    const hasRequiredRole = requiredRoles.some(role => user.role === role);
+    // --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
+    // Convertimos el rol del usuario (del token) a minúsculas para la comparación.
+    const userRole = user.role.toLowerCase(); 
+
+    // Comprobamos si alguno de los roles requeridos (también convertido a minúsculas)
+    // coincide con el rol del usuario.
+    const hasRequiredRole = requiredRoles.some(requiredRole => requiredRole.toLowerCase() === userRole);
+    // --- FIN DE LA CORRECCIÓN DEFINITIVA ---
 
     if (!hasRequiredRole) {
       throw new ForbiddenException(`Acesso negado. Requer uma destas roles: ${requiredRoles.join(', ')}`);
