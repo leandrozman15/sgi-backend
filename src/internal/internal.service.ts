@@ -14,7 +14,8 @@ export class InternalService {
     private readonly config: ConfigService,
   ) {}
 
-  async listUsers() {
+  // Renombrado de listUsers para coincidir con el controlador
+  async getUsers() {
     try {
       const usersResult = await this.auth.listUsers(100);
       return usersResult.users.map(user => ({
@@ -31,7 +32,8 @@ export class InternalService {
     }
   }
 
-  async listCompanies() {
+  // Renombrado de listCompanies para coincidir con el controlador
+  async getCompanies() {
     try {
       const sql = `SELECT * FROM companies ORDER BY name`;
       const result = await this.db.query(sql);
