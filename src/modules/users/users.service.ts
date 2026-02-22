@@ -7,10 +7,25 @@ export class UsersService {
   private auth: admin.auth.Auth;
 
   constructor() {
+    // Verificar si ya hay una app inicializada
     if (admin.apps.length === 0) {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      });
+      try {
+        // Intentar con applicationDefault() primero
+        admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
+        });
+      } catch (error) {
+        console.log('⚠️ applicationDefault() falhou, tentando com variáveis de ambiente...');
+        
+        // Fallback para variáveis de ambiente (Render)
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+          }),
+        });
+      }
     }
     this.auth = admin.auth();
   }
@@ -104,6 +119,50 @@ export class UsersService {
       });
     } catch (error) {
       throw new Error(`Erro ao atualizar permissões: ${error.message}`);
+    }
+  }
+
+  async findById(id: string, companyId?: string): Promise<UserClaims | null> {
+    try {
+      const user = await this.auth.getUser(id);
+      
+      // Si se proporciona companyId, verificar que coincida
+      if (companyId && user.customClaims?.companyId !== companyId) {
+        throw new NotFoundException('Usuário não encontrado nesta empresa');
+      }
+
+      return {
+        uid: user.uid,
+        email: user.email || '',
+        role: user.customClaims?.role as UserRole || UserRole.CONSULTOR,
+        companyId: user.customClaims?.companyId as string || '',
+        permissions: user.customClaims?.permissions as string[] || []
+      };
+    } catch (error) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+  }
+
+  async findByCompany(companyId: string): Promise<UserClaims[]> {
+    return this.getUsersByCompany(companyId);
+  }
+
+  async createItem(createDto: any): Promise<any> {
+    // TODO: Implementar creación de usuario en Firebase Auth
+    throw new Error('Método não implementado');
+  }
+
+  async updateItem(id: string, updateDto: any): Promise<any> {
+    // TODO: Implementar actualización de usuario
+    throw new Error('Método não implementado');
+  }
+
+  async deleteItem(id: string): Promise<any> {
+    try {
+      await this.auth.deleteUser(id);
+      return { message: 'Usuário deletado com sucesso' };
+    } catch (error) {
+      throw new Error(`Erro ao deletar usuário: ${error.message}`);
     }
   }
 
