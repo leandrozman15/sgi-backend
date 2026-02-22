@@ -53,3 +53,4 @@ temp/
 # Prisma (ya no usado, pero mantenemos)
 prisma/*.db
 prisma/*.db-journal
+generate-token.js
