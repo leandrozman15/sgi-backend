@@ -1,10 +1,9 @@
 import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
-import { UsersService } from './users.service';  // ✅ Importación correcta (con S)
-import { User } from '@prisma/client';
+import { UsersService } from './users.service';
 
 @Controller('users')
 export class UserController {
-  constructor(private readonly usersService: UsersService) {}  // ✅ Nombre consistente
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
   async getMe(@Body('userId') userId: string) {
@@ -28,7 +27,6 @@ export class UserController {
 
   @Post()
   async create(@Body() createDto: any) {
-    // Implementar creación de usuario si es necesario
     return { message: 'Método no implementado' };
   }
 
@@ -52,7 +50,6 @@ export class UserController {
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
-    // Implementar deleção se necessário
-    return { message: 'Método não implementado' };
+    return { message: 'Método no implementado' };
   }
 }
