@@ -6,58 +6,41 @@ import { UserRole, UserClaims } from '../../types/roles';
 export class UsersService {
   private auth: admin.auth.Auth;
 
-constructor() {
-  // Verificar si ya hay una app inicializada
-  if (admin.apps.length === 0) {
-    try {
-      console.log('🔧 Inicializando UsersService con variables de entorno...');
-      
-      // Limpiar la clave exactamente como funcionó en el shell
-      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-      if (privateKey) {
-        privateKey = privateKey.trim();
-        privateKey = privateKey.replace(/\\\\n/g, '
-');
-        privateKey = privateKey.replace(/^\"|\"$/g, '');
+  constructor() {
+    if (admin.apps.length === 0) {
+      try {
+        console.log('🔧 Inicializando UsersService...');
+        
+        let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+        if (privateKey) {
+          privateKey = privateKey.trim();
+          privateKey = privateKey.replace(/\\\\n/g, '\n');
+          privateKey = privateKey.replace(/^\"|\"$/g, '');
+        }
+        
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: privateKey,
+          }),
+        });
+        
+        console.log('✅ Firebase Admin inicializado');
+      } catch (error) {
+        console.error('❌ Error al inicializar Firebase:', error);
+        throw error;
       }
-      
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: privateKey,
-        }),
-      });
-      
-      console.log('✅ Firebase Admin inicializado correctamente');
-    } catch (error) {
-      console.error('❌ Error fatal al inicializar Firebase:', error);
-      throw new Error(`No se pudo inicializar Firebase Admin: ${error.message}`);
     }
-  }
-  this.auth = admin.auth();
-}
+    this.auth = admin.auth();
   }
 
   async setUserRole(uid: string, role: UserRole, companyId: string): Promise<UserClaims> {
     try {
       const permissions = this.getPermissionsForRole(role);
-      
-      await this.auth.setCustomUserClaims(uid, {
-        role,
-        companyId,
-        permissions
-      });
-
+      await this.auth.setCustomUserClaims(uid, { role, companyId, permissions });
       const user = await this.auth.getUser(uid);
-      
-      return {
-        uid,
-        email: user.email || '',
-        role,
-        companyId,
-        permissions
-      };
+      return { uid, email: user.email || '', role, companyId, permissions };
     } catch (error) {
       throw new Error(`Erro ao definir role: ${error.message}`);
     }
@@ -66,11 +49,7 @@ constructor() {
   async getUserRole(uid: string): Promise<UserClaims | null> {
     try {
       const user = await this.auth.getUser(uid);
-      
-      if (!user.customClaims) {
-        return null;
-      }
-
+      if (!user.customClaims) return null;
       return {
         uid,
         email: user.email || '',
@@ -86,7 +65,6 @@ constructor() {
   async getUsersByCompany(companyId: string): Promise<UserClaims[]> {
     try {
       const listUsersResult = await this.auth.listUsers();
-      
       return listUsersResult.users
         .filter(user => user.customClaims?.companyId === companyId)
         .map(user => ({
@@ -104,7 +82,6 @@ constructor() {
   async getAllUsers(): Promise<UserClaims[]> {
     try {
       const listUsersResult = await this.auth.listUsers();
-      
       return listUsersResult.users.map(user => ({
         uid: user.uid,
         email: user.email || '',
@@ -121,11 +98,7 @@ constructor() {
     try {
       const user = await this.auth.getUser(uid);
       const currentClaims = user.customClaims || {};
-      
-      await this.auth.setCustomUserClaims(uid, {
-        ...currentClaims,
-        permissions
-      });
+      await this.auth.setCustomUserClaims(uid, { ...currentClaims, permissions });
     } catch (error) {
       throw new Error(`Erro ao atualizar permissões: ${error.message}`);
     }
@@ -134,12 +107,9 @@ constructor() {
   async findById(id: string, companyId?: string): Promise<UserClaims | null> {
     try {
       const user = await this.auth.getUser(id);
-      
-      // Si se proporciona companyId, verificar que coincida
       if (companyId && user.customClaims?.companyId !== companyId) {
         throw new NotFoundException('Usuário não encontrado nesta empresa');
       }
-
       return {
         uid: user.uid,
         email: user.email || '',
@@ -156,16 +126,6 @@ constructor() {
     return this.getUsersByCompany(companyId);
   }
 
-  async createItem(createDto: any): Promise<any> {
-    // TODO: Implementar creación de usuario en Firebase Auth
-    throw new Error('Método não implementado');
-  }
-
-  async updateItem(id: string, updateDto: any): Promise<any> {
-    // TODO: Implementar actualización de usuario
-    throw new Error('Método não implementado');
-  }
-
   async deleteItem(id: string): Promise<any> {
     try {
       await this.auth.deleteUser(id);
@@ -178,41 +138,12 @@ constructor() {
   private getPermissionsForRole(role: UserRole): string[] {
     const permissionsMap: Record<UserRole, string[]> = {
       [UserRole.MASTER]: ['*:*'],
-      [UserRole.ADMIN]: [
-        'companies:read', 'companies:write', 'companies:delete',
-        'users:manage', 'users:read', 'users:write',
-        'production:read', 'production:write',
-        'financial:read', 'financial:approve',
-        'reports:read', 'reports:export',
-        'settings:read', 'settings:write'
-      ],
-      [UserRole.GERENTE]: [
-        'production:read', 'production:write',
-        'reports:read',
-        'rh:read',
-        'financial:read',
-        'quality:read',
-        'purchases:approve'
-      ],
-      [UserRole.SUPERVISOR]: [
-        'production:read', 'production:write',
-        'quality:read', 'quality:write',
-        'maintenance:read', 'maintenance:write',
-        'team:read'
-      ],
-      [UserRole.OPERADOR]: [
-        'production:read', 'production:write',
-        'tasks:read', 'tasks:write',
-        'epi:read', 'epi:write',
-        'quality:read'
-      ],
-      [UserRole.CONSULTOR]: [
-        'reports:read',
-        'production:read',
-        'dashboards:read'
-      ]
+      [UserRole.ADMIN]: ['companies:read', 'companies:write', 'companies:delete', 'users:manage', 'users:read', 'users:write'],
+      [UserRole.GERENTE]: ['production:read', 'production:write', 'reports:read'],
+      [UserRole.SUPERVISOR]: ['production:read', 'production:write', 'quality:read'],
+      [UserRole.OPERADOR]: ['production:read', 'production:write', 'tasks:read'],
+      [UserRole.CONSULTOR]: ['reports:read', 'production:read', 'dashboards:read']
     };
-
     return permissionsMap[role] || [];
   }
 }
