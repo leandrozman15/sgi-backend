@@ -7,7 +7,7 @@ import { HealthModule } from './health/health.module';
 
 // --- Módulos de Funcionalidades ---
 import { CompanyModule } from './companies/companies.module';
-import { UserModule } from './users/users.module';
+import { UsersModule } from './modules/users/users.module';  // ✅ RUTA CORREGIDA
 import { MembershipModule } from './memberships/memberships.module';
 import { AuditLogModule } from './audit-logs/audit-logs.module';
 import { CarrierModule } from './carriers/carriers.module';
@@ -40,7 +40,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 
     // Módulos de Funcionalidades
     CompanyModule,
-    UserModule,
+    UsersModule,  // ✅ NOMBRE CORREGIDO
     MembershipModule,
     AuditLogModule,
     CarrierModule,
