@@ -1,35 +1,26 @@
 import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
 import { UserService } from './users.service';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../auth/models/roles.enum'; // Asegúrate que la ruta a UserRole sea correcta
-import { User } from '@prisma/client'; // O el tipo de dato de tu usuario
+import { UserRole } from '../auth/enums/roles.enum'; // Ajusta según tu estructura
+import { User } from '@prisma/client';
 
-// --- DECORADORES IMPORTANTES ---
-import { IsPublic } from '../auth/guards/tenant-membership.guard';
+// Importaciones corregidas
+import { IsPublic } from '../auth/decorators/is-public.decorator'; // Ruta común
 import { AuthUser } from '../auth/decorators/auth-user.decorator';
 
-// Los @UseGuards() a nivel de Controller se eliminan, ya que se aplican globalmente en app.module.ts
 @Controller('users')
 export class UserController {
   constructor(private readonly service: UserService) {}
 
-  // ==================================================================
-  // === RUTA FALTANTE (/me) AÑADIDA ===
-  // ==================================================================
   @Get('me')
-  @IsPublic() // ¡MUY IMPORTANTE! Esto desactiva el TenantMembershipGuard para esta ruta.
+  @IsPublic()
   async getMe(@AuthUser() user: User) {
-    // El FirebaseAuthGuard ya ha validado al usuario y lo ha adjuntado a la petición.
-    // Simplemente devolvemos la información del usuario que el frontend necesita.
-    // En el futuro, puedes usar this.service para enriquecer este objeto
-    // con más datos de la base de datos si es necesario.
     return user;
   }
-  // ==================================================================
 
   @Get()
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
-  async findAll(@Body('companyId') companyId: string) { // Asumiendo que companyId viene en el body o header
+  async findAll(@Body('companyId') companyId: string) {
     return this.service.findByCompany(companyId);
   }
 
