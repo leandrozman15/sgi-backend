@@ -6,28 +6,37 @@ import { UserRole, UserClaims } from '../../types/roles';
 export class UsersService {
   private auth: admin.auth.Auth;
 
-  constructor() {
-    // Verificar si ya hay una app inicializada
-    if (admin.apps.length === 0) {
-      try {
-        // Intentar con applicationDefault() primero
-        admin.initializeApp({
-          credential: admin.credential.applicationDefault(),
-        });
-      } catch (error) {
-        console.log('⚠️ applicationDefault() falhou, tentando com variáveis de ambiente...');
-        
-        // Fallback para variáveis de ambiente (Render)
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-          }),
-        });
+constructor() {
+  // Verificar si ya hay una app inicializada
+  if (admin.apps.length === 0) {
+    try {
+      console.log('🔧 Inicializando UsersService con variables de entorno...');
+      
+      // Limpiar la clave exactamente como funcionó en el shell
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+      if (privateKey) {
+        privateKey = privateKey.trim();
+        privateKey = privateKey.replace(/\\\\n/g, '
+');
+        privateKey = privateKey.replace(/^\"|\"$/g, '');
       }
+      
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: privateKey,
+        }),
+      });
+      
+      console.log('✅ Firebase Admin inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error fatal al inicializar Firebase:', error);
+      throw new Error(`No se pudo inicializar Firebase Admin: ${error.message}`);
     }
-    this.auth = admin.auth();
+  }
+  this.auth = admin.auth();
+}
   }
 
   async setUserRole(uid: string, role: UserRole, companyId: string): Promise<UserClaims> {
