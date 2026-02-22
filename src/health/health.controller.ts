@@ -1,8 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
+import { Public } from '../auth/decorators/public.decorator'; // ✅ Importar
 
 @Controller('health')
 export class HealthController {
   @Get()
+  @Public() // ✅ Hacer público para health checks
   check() {
     return {
       status: 'ok',
