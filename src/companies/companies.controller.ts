@@ -11,6 +11,52 @@ import { Tenant } from '../common/decorators/tenant.decorator';
 export class CompanyController {
   constructor(private readonly service: CompanyService) {}
 
+  @Get('admin/overview')
+  @Roles(UserRole.MASTER)
+  async getAdminOverview() {
+    return this.service.getAdminOverview();
+  }
+
+  @Get('admin/:id/details')
+  @Roles(UserRole.MASTER)
+  async getAdminDetails(@Param('id') id: string) {
+    return this.service.getAdminDetails(id);
+  }
+
+  @Post('admin/bootstrap')
+  @Roles(UserRole.MASTER)
+  async bootstrapAdminCompany(
+    @Body()
+    payload: {
+      name: string;
+      cnpj?: string;
+      adminEmail: string;
+      adminName?: string;
+      plan?: string;
+      trial?: boolean;
+    },
+  ) {
+    return this.service.bootstrapAdminCompany(payload);
+  }
+
+  @Post('admin/:id/pause')
+  @Roles(UserRole.MASTER)
+  async pauseCompany(@Param('id') id: string) {
+    return this.service.pauseCompany(id);
+  }
+
+  @Post('admin/:id/reactivate')
+  @Roles(UserRole.MASTER)
+  async reactivateCompany(@Param('id') id: string) {
+    return this.service.reactivateCompany(id);
+  }
+
+  @Delete('admin/:id')
+  @Roles(UserRole.MASTER)
+  async softDeleteCompany(@Param('id') id: string) {
+    return this.service.softDeleteCompany(id);
+  }
+
   @Get()
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findAll(@Tenant() companyId: string) {
