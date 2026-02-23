@@ -46,6 +46,26 @@ export class CompanyService {
     return Math.max(0, Math.min(100, Math.round(peakRatio * 100)));
   }
 
+  private getFrontendUrl(): string {
+    return process.env.FRONTEND_URL || 'https://studio--base-17793905-8ce2e.us-central1.hosted.app';
+  }
+
+  private async generateAccountActivationLink(email: string): Promise<string | null> {
+    try {
+      const auth = getAuth();
+      return await auth.generatePasswordResetLink(email, {
+        url: `${this.getFrontendUrl()}/login?activation=1`,
+        handleCodeInApp: false,
+      });
+    } catch (error: any) {
+      console.error('[companies.generateAccountActivationLink] warning: failed to generate link', {
+        email,
+        error: error?.message || error,
+      });
+      return null;
+    }
+  }
+
   async getAdminOverview() {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
@@ -96,8 +116,8 @@ export class CompanyService {
       revenueRows.map((row) => [row.company_id, Number(row._sum.amount ?? 0)]),
     );
 
-    const list = companies
-      .map((company) => {
+    const list = await Promise.all(
+      companies.map(async (company) => {
         const plan = this.normalizePlan(company.plan || 'basic');
         const status = company.plan === 'deleted'
           ? 'deleted'
@@ -118,9 +138,7 @@ export class CompanyService {
 
         const activationLink =
           status === 'pending' && adminEmail
-            ? `${process.env.FRONTEND_URL || 'https://studio--base-17793905-8ce2e.us-central1.hosted.app'}/ativar-conta?email=${encodeURIComponent(
-                adminEmail,
-              )}&company=${encodeURIComponent(company.name)}`
+            ? await this.generateAccountActivationLink(adminEmail)
             : null;
 
         return {
@@ -137,17 +155,19 @@ export class CompanyService {
           createdAt: company.created_at,
           updatedAt: company.updated_at,
         };
-      })
-      .filter((company) => company.status !== 'deleted');
+      }),
+    );
+
+    const filteredList = list.filter((company) => company.status !== 'deleted');
 
     const metrics = {
-      totalCompanies: list.length,
-      activeCompanies: list.filter((company) => company.status === 'active').length,
-      pausedCompanies: list.filter((company) => company.status === 'paused').length,
-      monthRevenue: list.reduce((sum, company) => sum + company.monthRevenue, 0),
+      totalCompanies: filteredList.length,
+      activeCompanies: filteredList.filter((company) => company.status === 'active').length,
+      pausedCompanies: filteredList.filter((company) => company.status === 'paused').length,
+      monthRevenue: filteredList.reduce((sum, company) => sum + company.monthRevenue, 0),
     };
 
-    return { metrics, companies: list };
+    return { metrics, companies: filteredList };
   }
 
   async getAdminDetails(id: string) {
@@ -363,11 +383,7 @@ export class CompanyService {
       });
     }
 
-    const activationLink = isNewUser
-      ? `${process.env.FRONTEND_URL || 'https://studio--base-17793905-8ce2e.us-central1.hosted.app'}/ativar-conta?email=${encodeURIComponent(
-          adminEmail,
-        )}&company=${encodeURIComponent(companyName)}`
-      : null;
+    const activationLink = isNewUser ? await this.generateAccountActivationLink(adminEmail) : null;
 
     return {
       company: {
