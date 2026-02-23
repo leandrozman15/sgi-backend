@@ -33,7 +33,8 @@ export class TenantMembershipGuard implements CanActivate {
     const routePath = request.route?.path || '';
     const method = request.method;
     const isUserSessionRoute = method === 'GET' && (routePath === '/users/me' || routePath === '/users/session-init');
-    if (isUserSessionRoute) {
+    const isCompaniesAdminRoute = routePath.startsWith('/companies/admin');
+    if (isUserSessionRoute || isCompaniesAdminRoute) {
       return true;
     }
 
@@ -58,10 +59,6 @@ export class TenantMembershipGuard implements CanActivate {
         return true;
       }
       throw new ForbiddenException('Acesso negado: companyId não informado');
-    }
-
-    if (!isMaster && headerCompanyId && user.companyId && headerCompanyId !== user.companyId) {
-      throw new ForbiddenException('x-company-id não coincide com o claim companyId');
     }
 
     if (isMaster) {
