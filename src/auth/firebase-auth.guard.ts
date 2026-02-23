@@ -101,6 +101,8 @@ export class FirebaseAuthGuard implements CanActivate {
         uid: decoded.uid,
         email: decoded.email,
         role: (decoded as any).role || null, // por si luego usás custom claims
+        companyId: (decoded as any).companyId || null,
+        permissions: (decoded as any).permissions || [],
         claims: decoded,
       };
 

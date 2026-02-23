@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import * as admin from 'firebase-admin';
+import { PrismaClient } from '@prisma/client';
 import { UserRole, UserClaims } from '../../types/roles';
 
 @Injectable()
 export class UsersService {
   private auth: admin.auth.Auth;
+  private prisma: PrismaClient;
 
   constructor() {
     if (admin.apps.length === 0) {
@@ -33,6 +35,7 @@ export class UsersService {
       }
     }
     this.auth = admin.auth();
+    this.prisma = new PrismaClient();
   }
 
   async setUserRole(uid: string, role: UserRole, companyId: string): Promise<UserClaims> {
@@ -54,7 +57,7 @@ export class UsersService {
         uid,
         email: user.email || '',
         role: user.customClaims.role as UserRole,
-        companyId: user.customClaims.companyId as string,
+        companyId: user.customClaims.companyId as string || '',
         permissions: user.customClaims.permissions as string[] || []
       };
     } catch (error) {
@@ -91,6 +94,39 @@ export class UsersService {
       }));
     } catch (error) {
       throw new Error(`Erro ao listar todos os usuários: ${error.message}`);
+    }
+  }
+
+  async getUserCompanies(uid: string): Promise<Array<{
+    companyId: string;
+    name: string;
+    cnpj: string | null;
+    role: string;
+    createdAt: Date;
+  }>> {
+    try {
+      const companies = await this.prisma.$queryRaw<Array<{
+        companyId: string;
+        name: string;
+        cnpj: string | null;
+        role: string;
+        createdAt: Date;
+      }>>`
+        SELECT
+          uc.company_id AS "companyId",
+          c.name AS "name",
+          c.cnpj AS "cnpj",
+          uc.role AS "role",
+          uc.created_at AS "createdAt"
+        FROM user_companies uc
+        INNER JOIN companies c ON c.id = uc.company_id
+        WHERE uc.user_id = ${uid}
+        ORDER BY c.name ASC
+      `;
+
+      return companies;
+    } catch (error) {
+      throw new Error(`Erro ao obter empresas do usuário: ${error.message}`);
     }
   }
 

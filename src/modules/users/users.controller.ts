@@ -1,13 +1,45 @@
 import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { User } from '../../auth/decorators/user.decorator';
 
 @Controller('users')
 export class UserController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get('session-init')
+  async getSessionInit(@User() user: any) {
+    const [claims, companies] = await Promise.all([
+      this.usersService.getUserRole(user.uid),
+      this.usersService.getUserCompanies(user.uid),
+    ]);
+
+    const activeCompanyId = claims?.companyId || user?.companyId || null;
+
+    return {
+      user: {
+        uid: user.uid,
+        email: user.email || claims?.email || '',
+        role: claims?.role || user?.role || null,
+        companyId: activeCompanyId,
+        permissions: claims?.permissions || user?.permissions || [],
+      },
+      companies,
+      activeCompanyId,
+      requiresCompanySelection: !activeCompanyId && companies.length > 0,
+    };
+  }
+
   @Get('me')
-  async getMe(@Body('userId') userId: string) {
-    return this.usersService.getUserRole(userId);
+  async getMe(@User() user: any) {
+    const claims = await this.usersService.getUserRole(user.uid);
+    return {
+      uid: user.uid,
+      email: user.email || claims?.email || '',
+      role: claims?.role || user?.role || null,
+      companyId: claims?.companyId || user?.companyId || null,
+      permissions: claims?.permissions || user?.permissions || [],
+      hasCompanyId: Boolean(claims?.companyId || user?.companyId),
+    };
   }
 
   @Get()
