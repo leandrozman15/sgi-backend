@@ -12,19 +12,19 @@ export class CompanyController {
   constructor(private readonly service: CompanyService) {}
 
   @Get('admin/overview')
-  @Roles(UserRole.MASTER)
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
   async getAdminOverview() {
     return this.service.getAdminOverview();
   }
 
   @Get('admin/:id/details')
-  @Roles(UserRole.MASTER)
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
   async getAdminDetails(@Param('id') id: string) {
     return this.service.getAdminDetails(id);
   }
 
   @Post('admin/bootstrap')
-  @Roles(UserRole.MASTER)
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
   async bootstrapAdminCompany(
     @Body()
     payload: {
@@ -40,19 +40,19 @@ export class CompanyController {
   }
 
   @Post('admin/:id/pause')
-  @Roles(UserRole.MASTER)
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
   async pauseCompany(@Param('id') id: string) {
     return this.service.pauseCompany(id);
   }
 
   @Post('admin/:id/reactivate')
-  @Roles(UserRole.MASTER)
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
   async reactivateCompany(@Param('id') id: string) {
     return this.service.reactivateCompany(id);
   }
 
   @Delete('admin/:id')
-  @Roles(UserRole.MASTER)
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
   async softDeleteCompany(@Param('id') id: string) {
     return this.service.softDeleteCompany(id);
   }
