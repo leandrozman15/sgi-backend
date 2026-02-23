@@ -306,18 +306,31 @@ export class CompanyService {
       return createdCompany;
     });
 
-    await auth.setCustomUserClaims(userRecord.uid, {
-      role: 'ADMIN',
-      companyId: company.id,
-      permissions: [
-        'companies:read',
-        'companies:write',
-        'users:manage',
-        'production:read',
-        'production:write',
-        'financial:read',
-      ],
-    });
+    let claimsUpdated = true;
+    let claimsErrorMessage: string | null = null;
+
+    try {
+      await auth.setCustomUserClaims(userRecord.uid, {
+        role: 'ADMIN',
+        companyId: company.id,
+        permissions: [
+          'companies:read',
+          'companies:write',
+          'users:manage',
+          'production:read',
+          'production:write',
+          'financial:read',
+        ],
+      });
+    } catch (error: any) {
+      claimsUpdated = false;
+      claimsErrorMessage = error?.message || 'Falha ao atualizar custom claims';
+      console.error('[companies.bootstrapAdminCompany] warning: company created but failed to update claims', {
+        companyId: company.id,
+        userId: userRecord.uid,
+        error: claimsErrorMessage,
+      });
+    }
 
     const activationLink = isNewUser
       ? `${process.env.FRONTEND_URL || 'https://studio--base-17793905-8ce2e.us-central1.hosted.app'}/ativar-conta?email=${encodeURIComponent(
@@ -340,6 +353,9 @@ export class CompanyService {
       },
       activationLink,
       status: isNewUser ? 'pending' : 'active',
+      claimsUpdated,
+      warning: claimsUpdated ? null : 'Empresa criada, porém as permissões do usuário precisam ser sincronizadas novamente no próximo login.',
+      claimsError: claimsErrorMessage,
     };
   }
 
