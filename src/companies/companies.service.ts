@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { getAuth } from 'firebase-admin/auth';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 type AdminBootstrapPayload = {
   name: string;
@@ -260,51 +260,82 @@ export class CompanyService {
       }
     }
 
-    const company = await this.prisma.$transaction(async (tx) => {
-      const createdCompany = await tx.companies.create({
-        data: {
-          name: companyName,
-          cnpj,
-          plan,
-          active: true,
-        },
-      });
-
-      await tx.user_companies.upsert({
-        where: {
-          user_id_company_id: {
-            user_id: userRecord.uid,
-            company_id: createdCompany.id,
-          },
-        },
-        update: {
-          role: 'ADMIN',
-        },
-        create: {
-          user_id: userRecord.uid,
-          company_id: createdCompany.id,
-          role: 'ADMIN',
-        },
-      });
-
-      if (isTrial) {
-        const trialEndsAt = new Date();
-        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
-
-        await tx.subscription_history.create({
+    let company: { id: string; name: string; cnpj: string | null };
+    try {
+      company = await this.prisma.$transaction(async (tx) => {
+        const createdCompany = await tx.companies.create({
           data: {
-            company_id: createdCompany.id,
-            data: {
-              event: 'trial_started',
-              plan,
-              endsAt: trialEndsAt.toISOString(),
-            },
+            name: companyName,
+            cnpj,
+            plan,
+            active: true,
           },
         });
-      }
 
-      return createdCompany;
-    });
+        await tx.users.upsert({
+          where: { id: userRecord.uid },
+          update: {
+            email: adminEmail,
+            name: adminName || userRecord.displayName || null,
+            role: 'ADMIN',
+            company_id: createdCompany.id,
+            updated_at: new Date(),
+          },
+          create: {
+            id: userRecord.uid,
+            email: adminEmail,
+            name: adminName || userRecord.displayName || null,
+            role: 'ADMIN',
+            company_id: createdCompany.id,
+          },
+        });
+
+        await tx.user_companies.upsert({
+          where: {
+            user_id_company_id: {
+              user_id: userRecord.uid,
+              company_id: createdCompany.id,
+            },
+          },
+          update: {
+            role: 'ADMIN',
+          },
+          create: {
+            user_id: userRecord.uid,
+            company_id: createdCompany.id,
+            role: 'ADMIN',
+          },
+        });
+
+        if (isTrial) {
+          const trialEndsAt = new Date();
+          trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+          await tx.subscription_history.create({
+            data: {
+              company_id: createdCompany.id,
+              data: {
+                event: 'trial_started',
+                plan,
+                endsAt: trialEndsAt.toISOString(),
+              },
+            },
+          });
+        }
+
+        return {
+          id: createdCompany.id,
+          name: createdCompany.name,
+          cnpj: createdCompany.cnpj,
+        };
+      });
+    } catch (error: any) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = Array.isArray(error.meta?.target) ? error.meta?.target.join(', ') : 'campo único';
+        throw new ConflictException(`Já existe um registro com valor duplicado em: ${target}`);
+      }
+      throw error;
+    }
 
     let claimsUpdated = true;
     let claimsErrorMessage: string | null = null;
