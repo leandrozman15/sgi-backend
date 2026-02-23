@@ -136,10 +136,9 @@ export class CompanyService {
         const adminMember = company.user_companies[0];
         const adminEmail = adminMember?.users?.email || null;
 
-        const activationLink =
-          status === 'pending' && adminEmail
-            ? await this.generateAccountActivationLink(adminEmail)
-            : null;
+        const activationLink = adminEmail
+          ? await this.generateAccountActivationLink(adminEmail)
+          : null;
 
         return {
           id: company.id,
