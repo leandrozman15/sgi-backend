@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../database/database.module';
 import { CalibrationService } from './quality.service';
 import { CalibrationController } from './quality.controller';
 
 @Module({
-  imports: [DatabaseModule],
   controllers: [CalibrationController],
   providers: [CalibrationService],
   exports: [CalibrationService]

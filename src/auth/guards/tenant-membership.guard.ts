@@ -1,14 +1,17 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { DatabaseService } from '../../database/database.service';
+import { PrismaClient } from '@prisma/client';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class TenantMembershipGuard implements CanActivate {
+  private prisma: PrismaClient;
+
   constructor(
-    private db: DatabaseService,
     private reflector: Reflector,
-  ) {}
+  ) {
+    this.prisma = new PrismaClient();
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // ✅ VERIFICAR SI LA RUTA ES PÚBLICA
@@ -66,15 +69,25 @@ export class TenantMembershipGuard implements CanActivate {
     }
 
     try {
-      const sql = 'SELECT * FROM user_companies WHERE user_id = $1 AND company_id = $2';
-      const result = await this.db.query(sql, [user.uid, companyId]);
+      const membership = await this.prisma.user_companies.findFirst({
+        where: {
+          user_id: user.uid,
+          company_id: String(companyId),
+        },
+        select: {
+          id: true,
+        },
+      });
 
-      if (result.rows.length === 0) {
+      if (!membership) {
         throw new ForbiddenException('Usuário não pertence a esta empresa');
       }
 
       return true;
     } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw new ForbiddenException('Usuário não pertence a esta empresa');
+      }
       console.error('Erro ao verificar permissão de empresa:', error);
       throw new ForbiddenException('Erro ao verificar permissão de empresa');
     }

@@ -98,33 +98,38 @@ export class UsersService {
   }
 
   async getUserCompanies(uid: string): Promise<Array<{
-    companyId: string;
+    id: string;
     name: string;
-    cnpj: string | null;
     role: string;
-    createdAt: Date;
+    roles: string[];
   }>> {
     try {
-      const companies = await this.prisma.$queryRaw<Array<{
-        companyId: string;
-        name: string;
-        cnpj: string | null;
-        role: string;
-        createdAt: Date;
-      }>>`
-        SELECT
-          uc.company_id AS "companyId",
-          c.name AS "name",
-          c.cnpj AS "cnpj",
-          uc.role AS "role",
-          uc.created_at AS "createdAt"
-        FROM user_companies uc
-        INNER JOIN companies c ON c.id = uc.company_id
-        WHERE uc.user_id = ${uid}
-        ORDER BY c.name ASC
-      `;
+      const memberships = await this.prisma.user_companies.findMany({
+        where: {
+          user_id: uid,
+        },
+        include: {
+          companies: true,
+        },
+        orderBy: {
+          companies: {
+            name: 'asc',
+          },
+        },
+      });
 
-      return companies;
+      return memberships.map((membership) => {
+        const role = typeof membership.role === 'string' && membership.role.length > 0
+          ? membership.role
+          : 'CONSULTOR';
+
+        return {
+          id: membership.companies.id,
+          name: membership.companies.name,
+          role,
+          roles: [role],
+        };
+      });
     } catch (error) {
       throw new Error(`Erro ao obter empresas do usuário: ${error.message}`);
     }

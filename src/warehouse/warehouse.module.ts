@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../database/database.module';
 import { WarehouseLocationService } from './warehouse.service';
 import { WarehouseLocationController } from './warehouse.controller';
 
 @Module({
-  imports: [DatabaseModule],
   controllers: [WarehouseLocationController],
   providers: [WarehouseLocationService],
   exports: [WarehouseLocationService]

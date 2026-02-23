@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { DatabaseModule } from "./database/database.module";
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 
@@ -16,11 +15,15 @@ import { EmployeeModule } from './employees/employees.module';
 import { InventoryMovementModule } from './inventory/inventory.module';
 import { MachineModule } from './machines/machines.module';
 import { ProductModule } from './products/products.module';
+import { ProductionOrderModule } from './production-orders/production-orders.module';
+import { CalibrationModule } from './quality/quality.module';
 import { RawMaterialModule } from './raw-materials/raw-materials.module';
 import { SaleModule } from './sales/sales.module';
 import { SupplierModule } from './suppliers/suppliers.module';
+import { TaxServicePaymentModule } from './finance/finance.module';
 import { WarehouseLocationModule } from './warehouse/warehouse.module';
 import { PurchaseRequestModule } from './purchase-requests/purchase-requests.module';
+import { WorkAccidentModule } from './hr-extras/hr-extras.module';
 
 // ✅ IMPORTAR INTERNAL MODULE
 import { InternalModule } from './internal/internal.module';
@@ -34,7 +37,6 @@ import { RolesGuard } from './auth/guards/roles.guard';
   imports: [
     // Módulos Core
     ConfigModule.forRoot({ isGlobal: true }),
-    DatabaseModule,
     AuthModule,
     HealthModule,
 
@@ -49,11 +51,15 @@ import { RolesGuard } from './auth/guards/roles.guard';
     InventoryMovementModule,
     MachineModule,
     ProductModule,
+    ProductionOrderModule,
+    CalibrationModule,
     RawMaterialModule,
     SaleModule,
     SupplierModule,
+    TaxServicePaymentModule,
     WarehouseLocationModule,
     PurchaseRequestModule,
+    WorkAccidentModule,
     
     // ✅ AGREGAR INTERNAL MODULE AQUÍ
     InternalModule,

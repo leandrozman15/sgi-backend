@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../database/database.module';
 import { RawMaterialService } from './raw-materials.service';
 import { RawMaterialController } from './raw-materials.controller';
 
 @Module({
-  imports: [DatabaseModule],
   controllers: [RawMaterialController],
   providers: [RawMaterialService],
   exports: [RawMaterialService]

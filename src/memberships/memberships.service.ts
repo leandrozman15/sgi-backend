@@ -1,30 +1,105 @@
-import { Injectable } from '@nestjs/common';
-import { BaseService } from '../database/base.service';
-import { DatabaseService } from '../database/database.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
-export class MembershipService extends BaseService {
-  constructor(protected db: DatabaseService) {
-    super(db);
+export class MembershipService {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient();
   }
 
   async findByCompany(companyId: string) {
-    return this.findAll(companyId, 'Membership');
+    if (!companyId) {
+      return this.prisma.memberships.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    return this.prisma.memberships.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findById(id: string, companyId: string) {
-    return this.findOne(id, companyId, 'Membership');
+    const membership = await this.prisma.memberships.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Membership não encontrada');
+    }
+
+    return membership;
   }
 
   async createItem(data: any, companyId: string) {
-    return this.create(data, companyId, 'Membership');
+    if (!data?.userId) {
+      throw new NotFoundException('userId é obrigatório');
+    }
+
+    const resolvedCompanyId = companyId || data?.companyId;
+    if (!resolvedCompanyId) {
+      throw new NotFoundException('companyId é obrigatório');
+    }
+
+    const roles = Array.isArray(data?.roles)
+      ? data.roles.filter((role: unknown): role is string => typeof role === 'string' && role.length > 0)
+      : [typeof data?.role === 'string' && data.role.length > 0 ? data.role : 'CONSULTOR'];
+
+    return this.prisma.memberships.create({
+      data: {
+        id: randomUUID(),
+        userId: data.userId,
+        companyId: resolvedCompanyId,
+        roles,
+      },
+    });
   }
 
   async updateItem(id: string, data: any, companyId: string) {
-    return this.update(id, data, companyId, 'Membership');
+    const existing = await this.prisma.memberships.findFirst({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Membership não encontrada');
+    }
+
+    const roles = Array.isArray(data?.roles)
+      ? data.roles.filter((role: unknown): role is string => typeof role === 'string' && role.length > 0)
+      : typeof data?.role === 'string' && data.role.length > 0
+        ? [data.role]
+        : existing.roles;
+
+    return this.prisma.memberships.update({
+      where: { id },
+      data: {
+        roles,
+      },
+    });
   }
 
   async deleteItem(id: string, companyId: string) {
-    return this.remove(id, companyId, 'Membership');
+    const deleted = await this.prisma.memberships.deleteMany({
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
+
+    if (deleted.count === 0) {
+      throw new NotFoundException('Membership não encontrada');
+    }
+
+    return { id };
   }
 }

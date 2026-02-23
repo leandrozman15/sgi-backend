@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../database/database.module';
 import { SubscriptionHistoryService } from './subscriptions.service';
 import { SubscriptionHistoryController } from './subscriptions.controller';
 
 @Module({
-  imports: [DatabaseModule],
   controllers: [SubscriptionHistoryController],
   providers: [SubscriptionHistoryService],
   exports: [SubscriptionHistoryService]

@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../database/database.module';
 import { MembershipService } from './memberships.service';
 import { MembershipController } from './memberships.controller';
 
 @Module({
-  imports: [DatabaseModule],
   controllers: [MembershipController],
   providers: [MembershipService],
   exports: [MembershipService]

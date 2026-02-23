@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../database/database.module';
 import { SupplierService } from './suppliers.service';
 import { SupplierController } from './suppliers.controller';
 
 @Module({
-  imports: [DatabaseModule],
   controllers: [SupplierController],
   providers: [SupplierService],
   exports: [SupplierService]

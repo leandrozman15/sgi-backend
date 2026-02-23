@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  // engineType = "library"
 }
 
 datasource db {
@@ -8,625 +7,275 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Company {
-  id                String              @id @default(cuid())
-  name              String
-  subscriptionPlan   PlanType?           @default(FREE)
-  subscriptionStatus SubscriptionStatus? @default(TRIAL)
-  subscriptionSince  DateTime?
-  subscriptionRenewal DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  deletedAt         DateTime?
-  
-  AuditLog          AuditLog[]
-  Carrier           Carrier[]
-  Client            Client[]
-  Employee          Employee[]
-  InventoryMovement InventoryMovement[]
-  Machine           Machine[]
-  memberships       Membership[]
-  Product           Product[]
-  ProductionOrder   ProductionOrder[]
-  RawMaterial       RawMaterial[]
-  Sale              Sale[]
-  Supplier          Supplier[]
-  WarehouseLocation WarehouseLocation[]
-  BankTransaction   BankTransaction[]
-  SalaryPayment     SalaryPayment[]
-  TaxServicePayment TaxServicePayment[]
-  Vacation          Vacation[]
-  EpiDelivery       EpiDelivery[]
-  AttendanceRecord  AttendanceRecord[]
-  WorkAccident      WorkAccident[]
-  PurchaseRequest   PurchaseRequest[]
-  QualityInspection QualityInspection[]
-  Complaint         Complaint[]
-  Calibration       Calibration[]
-  SaleQuote         SaleQuote[]
-  UpgradeRequest    UpgradeRequest[]
-  Invoice           Invoice[]
-  SubscriptionHistory SubscriptionHistory[]
-
-  @@index([deletedAt])
-}
-
-model User {
-  id          String       @id @default(cuid())
-  email       String       @unique
-  name        String?
-  password    String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  deletedAt   DateTime?
-  memberships Membership[]
-}
-
-model Membership {
-  id        String   @id @default(cuid())
-  userId    String
-  companyId String
-  roles     String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
-  
-  // Relacionamentos
-  company   Company  @relation(fields: [companyId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-  
-  // Relacionamento com FirebaseUser (opcional)
-  firebaseUser   FirebaseUser? @relation(fields: [firebaseUserId], references: [id])
-  firebaseUserId String?       @map("firebase_user_id")
-
-  @@unique([userId, companyId])
-  @@index([deletedAt])
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
+model audit_logs {
+  id        String   @id(map: "AuditLog_pkey")
   companyId String
   user      String
   module    String
   action    String
   data      Json?
   timestamp DateTime @default(now())
+
+  @@index([companyId], map: "AuditLog_companyId_idx")
+}
+
+model carriers {
+  id        String    @id(map: "Carrier_pkey")
+  companyId String
+  nome      String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  deletedAt DateTime?
+
+  @@index([companyId, deletedAt], map: "Carrier_companyId_deletedAt_idx")
+  @@index([companyId], map: "Carrier_companyId_idx")
+}
+
+model clients {
+  id        String    @id(map: "Client_pkey")
+  companyId String
+  nome      String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  deletedAt DateTime?
+
+  @@index([companyId, deletedAt], map: "Client_companyId_deletedAt_idx")
+  @@index([companyId], map: "Client_companyId_idx")
+}
+
+model companies {
+  id                     String                   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name                   String
+  cnpj                   String?                  @unique
+  plan                   String?                  @default("basic")
+  active                 Boolean?                 @default(true)
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  calibrations           calibrations[]
+  employees              employees[]
+  financial_transactions financial_transactions[]
+  machines               machines[]
+  production_orders      production_orders[]
+  products               products[]
+  purchase_requests      purchase_requests[]
+  subscription_history   subscription_history[]
+  tax_service_payments   tax_service_payments[]
+  user_companies         user_companies[]
+  users                  users[]
+  work_accidents         work_accidents[]
+}
+
+model employees {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name       String
+  email      String?   @unique
+  document   String?   @unique
+  position   String?
+  department String?
+  status     String?   @default("active")
+  company_id String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model financial_transactions {
+  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  type        String
+  amount      Decimal   @db.Decimal(10, 2)
+  description String?
+  date        DateTime  @db.Timestamp(6)
+  company_id  String
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+  companies   companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model inventory_movements {
+  id        String   @id(map: "InventoryMovement_pkey")
+  companyId String
+  data      Json?
   createdAt DateTime @default(now())
-  
-  // Relacionamentos
-  Company   Company  @relation(fields: [companyId], references: [id])
-  
-  // Relacionamento com FirebaseUser (opcional)
-  firebaseUser   FirebaseUser? @relation(fields: [firebaseUserId], references: [id])
-  firebaseUserId String?       @map("firebase_user_id")
+  updatedAt DateTime
 
-  @@index([companyId])
-  @@index([timestamp])
+  @@index([companyId], map: "InventoryMovement_companyId_idx")
 }
 
-model Carrier {
-  id        String    @id @default(cuid())
+model machines {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name       String
+  code       String?   @unique
+  type       String?
+  status     String?   @default("active")
+  company_id String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model memberships {
+  id        String   @id(map: "Membership_pkey")
+  userId    String
   companyId String
-  nome      String
-  data      Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  Company   Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-}
-
-model Client {
-  id        String    @id @default(cuid())
-  companyId String
-  nome      String
-  data      Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  Company   Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-}
-
-model Employee {
-  id          String    @id @default(cuid())
-  companyId   String
-  name        String
-  email       String
-  role        String?
-  accessLevel String?
-  hasAccess   Boolean?   @default(false)
-  data        Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-  Company     Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-}
-
-model InventoryMovement {
-  id        String   @id @default(cuid())
-  companyId String
-  type      String
-  productId String?
-  quantity  Float
-  unitPrice Float?
-  total     Float?
-  data      Json?
+  roles     String[]
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
-  Company   Company  @relation(fields: [companyId], references: [id])
 
-  @@index([companyId])
-  @@index([deletedAt])
+  @@unique([userId, companyId], map: "Membership_userId_companyId_key")
 }
 
-model Machine {
-  id        String    @id @default(cuid())
-  companyId String
-  name      String
-  data      Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  Company   Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
+model production_orders {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  number     String    @unique
+  product_id String
+  quantity   Int
+  status     String?   @default("pending")
+  company_id String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products   products  @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-model Product {
-  id        String    @id @default(cuid())
-  companyId String
-  nome      String
-  sku       String?
-  data      Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  Company   Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
+model products {
+  id                String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name              String
+  code              String?             @unique
+  description       String?
+  price             Decimal?            @db.Decimal(10, 2)
+  company_id        String
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamp(6)
+  production_orders production_orders[]
+  companies         companies           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-model ProductionOrder {
-  id             String    @id @default(cuid())
-  companyId      String
-  orderNumber    String
-  batchNumber    String?
-  client         String
-  status         String    @default("Pendente")
-  priority       String    @default("Média")
-  startDate      DateTime?
-  completionDate DateTime?
-  data           Json?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
-  Company        Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([orderNumber])
-}
-
-model RawMaterial {
-  id        String    @id @default(cuid())
+model raw_materials {
+  id        String    @id(map: "RawMaterial_pkey")
   companyId String
   nome      String
   data      Json?
   createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  updatedAt DateTime
   deletedAt DateTime?
-  Company   Company   @relation(fields: [companyId], references: [id])
 
-  @@index([companyId, deletedAt])
-  @@index([companyId])
+  @@index([companyId, deletedAt], map: "RawMaterial_companyId_deletedAt_idx")
+  @@index([companyId], map: "RawMaterial_companyId_idx")
 }
 
-model Sale {
-  id          String    @id @default(cuid())
-  companyId   String
-  saleNumber  String    @unique
-  clientName  String?
-  total       Float?
-  status      String    @default("DRAFT")
-  data        Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-  Company     Company   @relation(fields: [companyId], references: [id])
+model sales {
+  id        String    @id(map: "Sale_pkey")
+  companyId String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  deletedAt DateTime?
 
-  @@index([companyId, deletedAt])
-  @@index([companyId])
+  @@index([companyId, deletedAt], map: "Sale_companyId_deletedAt_idx")
+  @@index([companyId], map: "Sale_companyId_idx")
 }
 
-model Supplier {
-  id        String    @id @default(cuid())
+model suppliers {
+  id        String    @id(map: "Supplier_pkey")
   companyId String
   nome      String
   data      Json?
   createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  updatedAt DateTime
   deletedAt DateTime?
-  Company   Company   @relation(fields: [companyId], references: [id])
 
-  @@index([companyId, deletedAt])
-  @@index([companyId])
+  @@index([companyId, deletedAt], map: "Supplier_companyId_deletedAt_idx")
+  @@index([companyId], map: "Supplier_companyId_idx")
 }
 
-model WarehouseLocation {
-  id         String   @id @default(cuid())
+model user_companies {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  user_id    String
+  company_id String
+  role       String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([user_id, company_id])
+}
+
+model users {
+  id             String           @id
+  email          String           @unique
+  name           String?
+  role           String?          @default("CONSULTOR")
+  company_id     String?
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamp(6)
+  user_companies user_companies[]
+  companies      companies?       @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model warehouse_locations {
+  id         String   @id(map: "WarehouseLocation_pkey")
   companyId  String
   locationId String
   data       Json?
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  deletedAt  DateTime?
-  Company    Company  @relation(fields: [companyId], references: [id])
+  updatedAt  DateTime
 
-  @@unique([companyId, locationId])
-  @@index([companyId])
-  @@index([deletedAt])
+  @@unique([companyId, locationId], map: "WarehouseLocation_companyId_locationId_key")
+  @@index([companyId], map: "WarehouseLocation_companyId_idx")
 }
 
-enum PlanType {
-  FREE
-  BASIC
-  PROFESSIONAL
-  ENTERPRISE
+model calibrations {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id String
+  data       Json?
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  SUSPENDED
-  CANCELLED
-  PENDING_PAYMENT
-  PENDING_UPGRADE
-  TRIAL
+model purchase_requests {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id String
+  data       Json?
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
 }
 
-model BankTransaction {
-  id            String    @id @default(cuid())
-  companyId     String
-  description   String
-  amount        Float
-  type          String
-  category      String?
-  date          DateTime
-  bankAccount    String?
-  documentNumber String?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
+model subscription_history {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id String
+  data       Json?
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([date])
+  @@index([company_id])
 }
 
-model SalaryPayment {
-  id            String    @id @default(cuid())
-  companyId     String
-  employeeId    String
-  employeeName  String
-  amount        Float
-  paymentDate   DateTime
-  referenceMonth String
-  paymentMethod String?
-  status        String    @default("PENDING")
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
+model tax_service_payments {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id String
+  data       Json?
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([employeeId])
+  @@index([company_id])
 }
 
-model TaxServicePayment {
-  id            String    @id @default(cuid())
-  companyId     String
-  description   String
-  amount        Float
-  dueDate       DateTime
-  paymentDate   DateTime?
-  status        String    @default("PENDING")
-  documentNumber String?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
+model work_accidents {
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id String
+  data       Json?
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([dueDate])
-}
-
-model Vacation {
-  id            String    @id @default(cuid())
-  companyId     String
-  employeeId    String
-  employeeName  String
-  startDate     DateTime
-  endDate       DateTime
-  daysCount     Int
-  type          String
-  status        String    @default("SCHEDULED")
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([employeeId])
-}
-
-model EpiDelivery {
-  id            String    @id @default(cuid())
-  companyId     String
-  employeeId    String
-  employeeName  String
-  epiName       String
-  caNumber      String?
-  deliveryDate  DateTime
-  quantity      Int       @default(1)
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([employeeId])
-}
-
-model AttendanceRecord {
-  id            String    @id @default(cuid())
-  companyId     String
-  employeeId    String
-  employeeName  String
-  date          DateTime
-  entryTime     String?
-  exitTime      String?
-  lunchStart    String?
-  lunchEnd      String?
-  overtime      Float?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@unique([companyId, employeeId, date])
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-}
-
-model WorkAccident {
-  id            String    @id @default(cuid())
-  companyId     String
-  employeeId    String
-  employeeName  String
-  accidentDate  DateTime
-  description   String
-  severity      String
-  bodyPart      String?
-  lostDays      Int?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([employeeId])
-}
-
-model PurchaseRequest {
-  id            String    @id @default(cuid())
-  companyId     String
-  requestNumber String    @unique
-  requesterName String
-  department    String?
-  items         Json
-  totalAmount   Float
-  status        String    @default("DRAFT")
-  approvalDate  DateTime?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([status])
-}
-
-model QualityInspection {
-  id            String    @id @default(cuid())
-  companyId     String
-  productId     String?
-  productName   String
-  inspectorName String
-  inspectionDate DateTime
-  result        String
-  criteria      Json
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-}
-
-model Complaint {
-  id            String    @id @default(cuid())
-  companyId     String
-  clientName    String?
-  orderNumber   String?
-  description   String
-  category      String
-  priority      String    @default("MEDIUM")
-  status        String    @default("OPEN")
-  resolutionDate DateTime?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-}
-
-model Calibration {
-  id            String    @id @default(cuid())
-  companyId     String
-  equipmentName String
-  equipmentId   String?
-  calibrationDate DateTime
-  nextDueDate   DateTime
-  performedBy   String
-  certificateNumber String?
-  result        String
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([nextDueDate])
-}
-
-model SaleQuote {
-  id            String    @id @default(cuid())
-  companyId     String
-  quoteNumber   String    @unique
-  clientName    String
-  clientId      String?
-  items         Json
-  subtotal      Float
-  discount      Float     @default(0)
-  total         Float
-  validUntil    DateTime
-  status        String    @default("DRAFT")
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([status])
-}
-
-model UpgradeRequest {
-  id            String    @id @default(cuid())
-  companyId     String
-  currentPlan   PlanType
-  requestedPlan PlanType
-  reason        String?
-  status        String    @default("PENDING")
-  approvedAt    DateTime?
-  approvedBy    String?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([status])
-}
-
-model Invoice {
-  id            String    @id @default(cuid())
-  companyId     String
-  invoiceNumber String    @unique
-  amount        Float
-  dueDate       DateTime
-  paidAt        DateTime?
-  status        String    @default("PENDING")
-  paymentMethod String?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-  @@index([status])
-}
-
-model SubscriptionHistory {
-  id            String    @id @default(cuid())
-  companyId     String
-  plan          PlanType
-  status        SubscriptionStatus
-  startedAt     DateTime
-  endedAt       DateTime?
-  data          Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  Company       Company   @relation(fields: [companyId], references: [id])
-
-  @@index([companyId, deletedAt])
-  @@index([companyId])
-}
-
-// ============================================
-// COMPLEMENTOS - MODELOS ADICIONAIS
-// ============================================
-
-// Modelo de usuários do Firebase (para referência)
-model FirebaseUser {
-  id           String   @id
-  email        String   @unique
-  displayName  String?
-  photoURL     String?
-  createdAt    DateTime @default(now()) @map("created_at")
-  lastLoginAt  DateTime? @map("last_login_at")
-  
-  // Relacionamentos
-  memberships Membership[]
-  auditLogs   AuditLog[]
-
-  @@map("firebase_users")
-}
-
-// Enum para Roles
-enum Role {
-  MASTER
-  ADMIN
-  GERENTE
-  SUPERVISOR
-  OPERADOR
-  CONSULTOR
+  @@index([company_id])
 }

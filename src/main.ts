@@ -10,15 +10,23 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3001;
+  const corsFromEnv = (process.env.CORS_ORIGIN || process.env.APP_PUBLIC_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const corsOrigins = [
+    ...new Set([
+      ...corsFromEnv,
+      'http://localhost:3000',
+      'https://studio--base-17793905-8ce2e.us-central1.hosted.app',
+      /^https:\/\/.*\.cloudworkstations\.dev$/,
+      /^https:\/\/.*\.googleusercontent\.com$/,
+    ]),
+  ];
 
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'https://3000-firebase-base-1767745831923.cluster-ve345ymguzcd6qqzuko2qbxtfe.cloudworkstations.dev',
-      /\.cloudworkstations\.dev$/,
-      /\.googleusercontent\.com$/,
-      'https://studio--base-17793905-8ce2e.us-central1.hosted.app',
-    ],
+    origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-company-id'],
     credentials: true,
@@ -32,10 +40,9 @@ async function bootstrap() {
   console.log(`🚀 Backend running on port ${port}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 CORS enabled for:`);
-  console.log(`   - http://localhost:3000`);
-  console.log(`   - *.cloudworkstations.dev`);
-  console.log(`   - *.googleusercontent.com`);
-  console.log(`   - Firebase Hosting`);
+  corsOrigins.forEach((origin) => {
+    console.log(`   - ${origin.toString()}`);
+  });
   console.log('='.repeat(60));
 
   // Log de rutas (debug)

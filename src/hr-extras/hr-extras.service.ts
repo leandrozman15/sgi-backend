@@ -1,30 +1,113 @@
-import { Injectable } from '@nestjs/common';
-import { BaseService } from '../database/base.service';
-import { DatabaseService } from '../database/database.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
-export class WorkAccidentService extends BaseService {
-  constructor(protected db: DatabaseService) {
-    super(db);
+export class WorkAccidentService {
+  private prisma: PrismaClient;
+  private tableExists: boolean | null = null;
+
+  constructor() {
+    this.prisma = new PrismaClient();
+  }
+
+  private async hasTable(): Promise<boolean> {
+    if (this.tableExists === true) {
+      return true;
+    }
+
+    const rows = await this.prisma.$queryRaw<Array<{ table_name: string }>>`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'work_accidents'
+      LIMIT 1
+    `;
+
+    const exists = rows.length > 0;
+    if (exists) {
+      this.tableExists = true;
+    }
+
+    return exists;
   }
 
   async findByCompany(companyId: string) {
-    return this.findAll(companyId, 'WorkAccident');
+    if (!companyId || !(await this.hasTable())) {
+      return [];
+    }
+
+    return this.prisma.$queryRaw<Array<Record<string, any>>>
+      `SELECT * FROM work_accidents WHERE company_id = ${companyId} ORDER BY created_at DESC`;
   }
 
   async findById(id: string, companyId: string) {
-    return this.findOne(id, companyId, 'WorkAccident');
+    if (!companyId || !(await this.hasTable())) {
+      return null;
+    }
+
+    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+      `SELECT * FROM work_accidents WHERE id = ${id} AND company_id = ${companyId} LIMIT 1`;
+    return rows[0] ?? null;
   }
 
   async createItem(data: any, companyId: string) {
-    return this.create(data, companyId, 'WorkAccident');
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+    if (!(await this.hasTable())) {
+      throw new NotFoundException('Tabela work_accidents não existe no banco atual');
+    }
+
+    const payload = data?.data ?? data ?? null;
+    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+      `
+        INSERT INTO work_accidents (id, company_id, data, created_at, updated_at)
+        VALUES (${randomUUID()}, ${companyId}, ${payload}, NOW(), NOW())
+        RETURNING *
+      `;
+
+    return rows[0];
   }
 
   async updateItem(id: string, data: any, companyId: string) {
-    return this.update(id, data, companyId, 'WorkAccident');
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+    if (!(await this.hasTable())) {
+      throw new NotFoundException('Tabela work_accidents não existe no banco atual');
+    }
+
+    const payload = data?.data ?? data ?? null;
+    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+      `
+        UPDATE work_accidents
+        SET data = ${payload}, updated_at = NOW()
+        WHERE id = ${id} AND company_id = ${companyId}
+        RETURNING *
+      `;
+
+    if (rows.length === 0) {
+      throw new NotFoundException('Acidente de trabalho não encontrado');
+    }
+
+    return rows[0];
   }
 
   async deleteItem(id: string, companyId: string) {
-    return this.remove(id, companyId, 'WorkAccident');
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+    if (!(await this.hasTable())) {
+      throw new NotFoundException('Tabela work_accidents não existe no banco atual');
+    }
+
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>
+      `DELETE FROM work_accidents WHERE id = ${id} AND company_id = ${companyId} RETURNING id`;
+
+    if (rows.length === 0) {
+      throw new NotFoundException('Acidente de trabalho não encontrado');
+    }
+
+    return { id: rows[0].id };
   }
 }

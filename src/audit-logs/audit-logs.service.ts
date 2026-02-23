@@ -1,30 +1,103 @@
-import { Injectable } from '@nestjs/common';
-import { BaseService } from '../database/base.service';
-import { DatabaseService } from '../database/database.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
-export class AuditLogService extends BaseService {
-  constructor(protected db: DatabaseService) {
-    super(db);
+export class AuditLogService {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient();
   }
 
   async findByCompany(companyId: string) {
-    return this.findAll(companyId, 'AuditLog');
+    if (!companyId) {
+      return [];
+    }
+
+    return this.prisma.audit_logs.findMany({
+      where: { companyId },
+      orderBy: { timestamp: 'desc' },
+    });
   }
 
   async findById(id: string, companyId: string) {
-    return this.findOne(id, companyId, 'AuditLog');
+    if (!companyId) {
+      return null;
+    }
+
+    return this.prisma.audit_logs.findFirst({
+      where: {
+        id,
+        companyId,
+      },
+    });
   }
 
   async createItem(data: any, companyId: string) {
-    return this.create(data, companyId, 'AuditLog');
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    if (!data?.user || !data?.module || !data?.action) {
+      throw new NotFoundException('Campos obrigatórios: user, module, action');
+    }
+
+    return this.prisma.audit_logs.create({
+      data: {
+        id: randomUUID(),
+        companyId,
+        user: data.user,
+        module: data.module,
+        action: data.action,
+        data: data?.data ?? null,
+      },
+    });
   }
 
   async updateItem(id: string, data: any, companyId: string) {
-    return this.update(id, data, companyId, 'AuditLog');
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const existing = await this.prisma.audit_logs.findFirst({
+      where: {
+        id,
+        companyId,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Log não encontrado');
+    }
+
+    return this.prisma.audit_logs.update({
+      where: { id },
+      data: {
+        ...(data?.user !== undefined ? { user: data.user } : {}),
+        ...(data?.module !== undefined ? { module: data.module } : {}),
+        ...(data?.action !== undefined ? { action: data.action } : {}),
+        ...(data?.data !== undefined ? { data: data.data } : {}),
+      },
+    });
   }
 
   async deleteItem(id: string, companyId: string) {
-    return this.remove(id, companyId, 'AuditLog');
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const deleted = await this.prisma.audit_logs.deleteMany({
+      where: {
+        id,
+        companyId,
+      },
+    });
+
+    if (deleted.count === 0) {
+      throw new NotFoundException('Log não encontrado');
+    }
+
+    return { id };
   }
 }

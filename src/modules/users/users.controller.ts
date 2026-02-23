@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from '../../auth/decorators/user.decorator';
 
@@ -8,20 +8,27 @@ export class UserController {
 
   @Get('session-init')
   async getSessionInit(@User() user: any) {
+    if (!user?.uid) {
+      throw new UnauthorizedException('Missing authenticated user');
+    }
+
     const [claims, companies] = await Promise.all([
       this.usersService.getUserRole(user.uid),
       this.usersService.getUserCompanies(user.uid),
     ]);
 
     const activeCompanyId = claims?.companyId || user?.companyId || null;
+    const selectedCompany = companies.find((company) => company.id === activeCompanyId);
+    const selectedRoles = selectedCompany?.roles || [];
 
     return {
       user: {
         uid: user.uid,
-        email: user.email || claims?.email || '',
-        role: claims?.role || user?.role || null,
+        email: user.email || claims?.email || null,
+        name: user.name || null,
         companyId: activeCompanyId,
-        permissions: claims?.permissions || user?.permissions || [],
+        role: selectedCompany?.role || claims?.role || user?.role || null,
+        roles: selectedRoles,
       },
       companies,
       activeCompanyId,
