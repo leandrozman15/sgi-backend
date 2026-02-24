@@ -25,6 +25,7 @@ import { WarehouseLocationModule } from './warehouse/warehouse.module';
 import { PurchaseRequestModule } from './purchase-requests/purchase-requests.module';
 import { PurchaseOrderModule } from './purchase-orders/purchase-orders.module';
 import { WorkAccidentModule } from './hr-extras/hr-extras.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 
 // ✅ IMPORTAR INTERNAL MODULE
 import { InternalModule } from './internal/internal.module';
@@ -62,6 +63,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     PurchaseRequestModule,
     PurchaseOrderModule,
     WorkAccidentModule,
+    MaintenanceModule,
     
     // ✅ AGREGAR INTERNAL MODULE AQUÍ
     InternalModule,

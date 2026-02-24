@@ -50,26 +50,33 @@ model clients {
 }
 
 model companies {
-  id                     String                   @id @default(dbgenerated("(gen_random_uuid())::text"))
-  name                   String
-  cnpj                   String?                  @unique
-  plan                   String?                  @default("basic")
-  active                 Boolean?                 @default(true)
-  created_at             DateTime?                @default(now()) @db.Timestamp(6)
-  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
-  calibrations           calibrations[]
-  employees              employees[]
-  financial_transactions financial_transactions[]
-  machines               machines[]
-  production_orders      production_orders[]
-  products               products[]
-  purchase_orders        purchase_orders[]
-  purchase_requests      purchase_requests[]
-  subscription_history   subscription_history[]
-  tax_service_payments   tax_service_payments[]
-  user_companies         user_companies[]
-  users                  users[]
-  work_accidents         work_accidents[]
+  id                           String                         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name                         String
+  cnpj                         String?                        @unique
+  plan                         String?                        @default("basic")
+  active                       Boolean?                       @default(true)
+  created_at                   DateTime?                      @default(now()) @db.Timestamp(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamp(6)
+  calibrations                 calibrations[]
+  employees                    employees[]
+  financial_transactions       financial_transactions[]
+  maintenance_downtimes        maintenance_downtimes[]
+  maintenance_plans            maintenance_plans[]
+  maintenance_schedules        maintenance_schedules[]
+  maintenance_work_order_parts maintenance_work_order_parts[]
+  maintenance_work_orders      maintenance_work_orders[]
+  machine_documents            machine_documents[]
+  machine_meter_readings       machine_meter_readings[]
+  machines                     machines[]
+  production_orders            production_orders[]
+  products                     products[]
+  purchase_orders              purchase_orders[]
+  purchase_requests            purchase_requests[]
+  subscription_history         subscription_history[]
+  tax_service_payments         tax_service_payments[]
+  user_companies               user_companies[]
+  users                        users[]
+  work_accidents               work_accidents[]
 }
 
 model employees {
@@ -127,15 +134,233 @@ model inventory_movements {
 }
 
 model machines {
-  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  name       String
-  code       String?   @unique
-  type       String?
-  status     String?   @default("active")
-  company_id String
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  updated_at DateTime? @default(now()) @db.Timestamp(6)
-  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                      String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name                    String
+  model                   String?
+  code                    String?                   @unique
+  type                    String?
+  manufacturer            String?
+  serial_number           String?
+  tag                     String?
+  sector                  String?
+  location                String?
+  acquisition_date        DateTime?                 @db.Timestamp(6)
+  installation_date       DateTime?                 @db.Timestamp(6)
+  warranty_until          DateTime?                 @db.Timestamp(6)
+  power_kw                Decimal?                  @db.Decimal(10, 3)
+  voltage_v               Decimal?                  @db.Decimal(10, 3)
+  pressure_bar            Decimal?                  @db.Decimal(10, 3)
+  rotation_rpm            Decimal?                  @db.Decimal(10, 3)
+  temperature_range       String?
+  lubrication_reqs        String?
+  other_inputs            String?
+  required_epp            String?
+  main_risks              String?
+  lubrication_points      String?
+  maintenance_intervals   String?
+  critical_spares         String?
+  manual_url              String?
+  maintenance_notes       String?
+  maintenance_history     Json?
+  last_maintenance        DateTime?                 @db.Timestamp(6)
+  next_maintenance        DateTime?                 @db.Timestamp(6)
+  archived                Boolean?                  @default(false)
+  data                    Json?
+  status                  String?                   @default("active")
+  company_id              String
+  created_at              DateTime?                 @default(now()) @db.Timestamp(6)
+  updated_at              DateTime?                 @default(now()) @db.Timestamp(6)
+  maintenance_downtimes   maintenance_downtimes[]
+  maintenance_plans       maintenance_plans[]
+  maintenance_schedules   maintenance_schedules[]
+  maintenance_work_orders maintenance_work_orders[]
+  machine_documents       machine_documents[]
+  machine_meter_readings  machine_meter_readings[]
+  companies               companies                 @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model maintenance_plans {
+  id                    String                  @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id            String
+  machine_id            String
+  title                 String
+  description           String?
+  maintenance_type      String?
+  frequency_unit        String?
+  frequency_value       Int?
+  estimated_hours       Decimal?                @db.Decimal(10, 2)
+  checklist             Json?
+  required_parts        Json?
+  active                Boolean?                @default(true)
+  last_executed_at      DateTime?               @db.Timestamp(6)
+  next_due_at           DateTime?               @db.Timestamp(6)
+  data                  Json?
+  created_at            DateTime                @default(now()) @db.Timestamp(6)
+  updated_at            DateTime                @default(now()) @db.Timestamp(6)
+  companies             companies               @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  machines              machines                @relation(fields: [machine_id], references: [id], onDelete: Cascade)
+  maintenance_schedules maintenance_schedules[]
+
+  @@index([company_id], map: "maintenance_plans_company_id_idx")
+  @@index([machine_id], map: "maintenance_plans_machine_id_idx")
+  @@index([company_id, machine_id], map: "maintenance_plans_company_machine_idx")
+}
+
+model maintenance_schedules {
+  id                      String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id              String
+  machine_id              String
+  maintenance_plan_id     String?
+  scheduled_for           DateTime                  @db.Timestamp(6)
+  assigned_to_employee_id String?
+  priority                String?
+  status                  String?                   @default("scheduled")
+  notes                   String?
+  recurrence_snapshot     Json?
+  data                    Json?
+  created_at              DateTime                  @default(now()) @db.Timestamp(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamp(6)
+  companies               companies                 @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  machines                machines                  @relation(fields: [machine_id], references: [id], onDelete: Cascade)
+  maintenance_plans       maintenance_plans?        @relation(fields: [maintenance_plan_id], references: [id], onDelete: SetNull)
+  maintenance_work_orders maintenance_work_orders[]
+
+  @@index([company_id], map: "maintenance_schedules_company_id_idx")
+  @@index([machine_id], map: "maintenance_schedules_machine_id_idx")
+  @@index([scheduled_for], map: "maintenance_schedules_scheduled_for_idx")
+  @@index([status], map: "maintenance_schedules_status_idx")
+}
+
+model maintenance_work_orders {
+  id                           String                         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id                   String
+  machine_id                   String
+  maintenance_schedule_id      String?
+  order_number                 String?
+  maintenance_type             String?
+  priority                     String?
+  status                       String?                        @default("open")
+  opened_at                    DateTime?                      @db.Timestamp(6)
+  started_at                   DateTime?                      @db.Timestamp(6)
+  finished_at                  DateTime?                      @db.Timestamp(6)
+  reported_by                  String?
+  assigned_to                  String?
+  approved_by                  String?
+  failure_mode                 String?
+  root_cause                   String?
+  actions_taken                String?
+  observations                 String?
+  downtime_minutes             Int?
+  labor_cost                   Decimal?                       @db.Decimal(12, 2)
+  parts_cost                   Decimal?                       @db.Decimal(12, 2)
+  external_cost                Decimal?                       @db.Decimal(12, 2)
+  total_cost                   Decimal?                       @db.Decimal(12, 2)
+  data                         Json?
+  created_at                   DateTime                       @default(now()) @db.Timestamp(6)
+  updated_at                   DateTime                       @default(now()) @db.Timestamp(6)
+  companies                    companies                      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  machines                     machines                       @relation(fields: [machine_id], references: [id], onDelete: Cascade)
+  maintenance_schedules        maintenance_schedules?         @relation(fields: [maintenance_schedule_id], references: [id], onDelete: SetNull)
+  maintenance_downtimes        maintenance_downtimes[]
+  maintenance_work_order_parts maintenance_work_order_parts[]
+
+  @@index([company_id], map: "maintenance_work_orders_company_id_idx")
+  @@index([machine_id], map: "maintenance_work_orders_machine_id_idx")
+  @@index([maintenance_schedule_id], map: "maintenance_work_orders_schedule_id_idx")
+  @@index([status], map: "maintenance_work_orders_status_idx")
+  @@index([order_number], map: "maintenance_work_orders_order_number_idx")
+}
+
+model maintenance_work_order_parts {
+  id                        String                  @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id                String
+  maintenance_work_order_id String
+  raw_material_id           String?
+  product_id                String?
+  description               String?
+  quantity                  Decimal?                @db.Decimal(12, 4)
+  unit_cost                 Decimal?                @db.Decimal(12, 4)
+  total_cost                Decimal?                @db.Decimal(12, 4)
+  data                      Json?
+  created_at                DateTime                @default(now()) @db.Timestamp(6)
+  updated_at                DateTime                @default(now()) @db.Timestamp(6)
+  companies                 companies               @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  maintenance_work_orders   maintenance_work_orders @relation(fields: [maintenance_work_order_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "maintenance_work_order_parts_company_id_idx")
+  @@index([maintenance_work_order_id], map: "maintenance_work_order_parts_order_id_idx")
+  @@index([raw_material_id], map: "maintenance_work_order_parts_raw_material_id_idx")
+  @@index([product_id], map: "maintenance_work_order_parts_product_id_idx")
+}
+
+model machine_meter_readings {
+  id            String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id    String
+  machine_id    String
+  meter_type    String
+  reading_value Decimal   @db.Decimal(14, 4)
+  unit          String?
+  reading_at    DateTime  @db.Timestamp(6)
+  notes         String?
+  data          Json?
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @default(now()) @db.Timestamp(6)
+  companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  machines      machines  @relation(fields: [machine_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "machine_meter_readings_company_id_idx")
+  @@index([machine_id], map: "machine_meter_readings_machine_id_idx")
+  @@index([meter_type], map: "machine_meter_readings_meter_type_idx")
+  @@index([reading_at], map: "machine_meter_readings_reading_at_idx")
+}
+
+model maintenance_downtimes {
+  id                        String                   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id                String
+  machine_id                String
+  maintenance_work_order_id String?
+  category                  String?
+  reason                    String?
+  planned                   Boolean?                 @default(false)
+  started_at                DateTime                 @db.Timestamp(6)
+  ended_at                  DateTime?                @db.Timestamp(6)
+  duration_minutes          Int?
+  impact_level              String?
+  notes                     String?
+  data                      Json?
+  created_at                DateTime                 @default(now()) @db.Timestamp(6)
+  updated_at                DateTime                 @default(now()) @db.Timestamp(6)
+  companies                 companies                @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  machines                  machines                 @relation(fields: [machine_id], references: [id], onDelete: Cascade)
+  maintenance_work_orders   maintenance_work_orders? @relation(fields: [maintenance_work_order_id], references: [id], onDelete: SetNull)
+
+  @@index([company_id], map: "maintenance_downtimes_company_id_idx")
+  @@index([machine_id], map: "maintenance_downtimes_machine_id_idx")
+  @@index([maintenance_work_order_id], map: "maintenance_downtimes_work_order_id_idx")
+  @@index([started_at], map: "maintenance_downtimes_started_at_idx")
+}
+
+model machine_documents {
+  id            String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id    String
+  machine_id    String
+  document_type String?
+  title         String
+  file_url      String
+  file_name     String?
+  version       String?
+  issued_at     DateTime? @db.Timestamp(6)
+  expires_at    DateTime? @db.Timestamp(6)
+  uploaded_by   String?
+  data          Json?
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @default(now()) @db.Timestamp(6)
+  companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  machines      machines  @relation(fields: [machine_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "machine_documents_company_id_idx")
+  @@index([machine_id], map: "machine_documents_machine_id_idx")
+  @@index([document_type], map: "machine_documents_document_type_idx")
 }
 
 model memberships {
@@ -162,103 +387,103 @@ model production_orders {
 }
 
 model products {
-  id                String              @id @default(dbgenerated("(gen_random_uuid())::text"))
-  name              String
-  code              String?             @unique
-  sku               String?
-  published         Boolean?            @default(false)
-  gs1_code          String?
-  customer_barcode  String?
-  type              String?
-  description       String?
-  price             Decimal?            @db.Decimal(10, 2)
-  current_stock     Int?
-  weight            Decimal?            @db.Decimal(10, 3)
-  dangerous_goods_class String?
-  country_of_origin String?
-  ncm               String?
-  cest              String?
-  cfop              String?
-  csosn             String?
-  ipi_aliquota      Decimal?            @db.Decimal(10, 4)
-  ipi_situacao_tributaria String?
-  ipi_cod_enquadramento String?
-  icms_aliquota     Decimal?            @db.Decimal(10, 4)
-  sujeito_icms_st   Boolean?
-  mva_aliquota      Decimal?            @db.Decimal(10, 4)
-  valor_icms_st     Decimal?            @db.Decimal(12, 4)
-  origem_mercadoria String?
-  unidade_tributavel String?
-  pis_situacao_tributaria String?
-  pis_aliquota      Decimal?            @db.Decimal(10, 4)
-  cofins_situacao_tributaria String?
-  cofins_aliquota   Decimal?            @db.Decimal(10, 4)
-  icms_modalidade_bc String?
+  id                           String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name                         String
+  code                         String?             @unique
+  sku                          String?
+  published                    Boolean?            @default(false)
+  gs1_code                     String?
+  customer_barcode             String?
+  type                         String?
+  description                  String?
+  price                        Decimal?            @db.Decimal(10, 2)
+  current_stock                Int?
+  weight                       Decimal?            @db.Decimal(10, 3)
+  dangerous_goods_class        String?
+  country_of_origin            String?
+  ncm                          String?
+  cest                         String?
+  cfop                         String?
+  csosn                        String?
+  ipi_aliquota                 Decimal?            @db.Decimal(10, 4)
+  ipi_situacao_tributaria      String?
+  ipi_cod_enquadramento        String?
+  icms_aliquota                Decimal?            @db.Decimal(10, 4)
+  sujeito_icms_st              Boolean?
+  mva_aliquota                 Decimal?            @db.Decimal(10, 4)
+  valor_icms_st                Decimal?            @db.Decimal(12, 4)
+  origem_mercadoria            String?
+  unidade_tributavel           String?
+  pis_situacao_tributaria      String?
+  pis_aliquota                 Decimal?            @db.Decimal(10, 4)
+  cofins_situacao_tributaria   String?
+  cofins_aliquota              Decimal?            @db.Decimal(10, 4)
+  icms_modalidade_bc           String?
   cod_classificacao_tributaria String?
-  aliquota_ibs_uf   Decimal?            @db.Decimal(10, 4)
-  aliquota_ibs_mun  Decimal?            @db.Decimal(10, 4)
-  aliquota_cbs      Decimal?            @db.Decimal(10, 4)
-  image_urls        Json?
-  variants          Json?
-  raw_materials     Json?
-  stages            Json?
-  technical_specs   Json?
-  data              Json?
-  company_id        String
-  created_at        DateTime?           @default(now()) @db.Timestamp(6)
-  updated_at        DateTime?           @default(now()) @db.Timestamp(6)
-  production_orders production_orders[]
-  companies         companies           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  aliquota_ibs_uf              Decimal?            @db.Decimal(10, 4)
+  aliquota_ibs_mun             Decimal?            @db.Decimal(10, 4)
+  aliquota_cbs                 Decimal?            @db.Decimal(10, 4)
+  image_urls                   Json?
+  variants                     Json?
+  raw_materials                Json?
+  stages                       Json?
+  technical_specs              Json?
+  data                         Json?
+  company_id                   String
+  created_at                   DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at                   DateTime?           @default(now()) @db.Timestamp(6)
+  production_orders            production_orders[]
+  companies                    companies           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model raw_materials {
-  id        String    @id(map: "RawMaterial_pkey")
-  companyId String
-  nome      String
-  code      String?
-  sku       String?
-  gs1Code   String?
-  customerBarcode String?
-  group     String?
-  lote      String?
-  minStock  Decimal?  @db.Decimal(12, 4)
-  maxStock  Decimal?  @db.Decimal(12, 4)
-  currentStock Decimal? @db.Decimal(12, 4)
-  weight    Decimal?  @db.Decimal(12, 4)
-  dangerousGoodsClass String?
-  tipoMaterial String?
-  unidadeConsumo String?
-  fatorConversao Decimal? @db.Decimal(12, 4)
-  validadeDias Int?
-  localizacaoEstoque String?
-  obsTecnicas String?
-  ncm       String?
-  cest      String?
-  cfop      String?
-  csosn     String?
-  unidadeTributavel String?
-  origem    String?
-  ipiAliquota Decimal? @db.Decimal(10, 4)
-  ipiSituacaoTributaria String?
-  ipiCodEnquadramento String?
-  icmsAliquota Decimal? @db.Decimal(10, 4)
-  sujeitoIcmsSt Boolean?
-  mvaAliquota Decimal? @db.Decimal(10, 4)
-  valorIcmsSt Decimal? @db.Decimal(12, 4)
-  pisSituacaoTributaria String?
-  pisAliquota Decimal? @db.Decimal(10, 4)
-  cofinsSituacaoTributaria String?
-  cofinsAliquota Decimal? @db.Decimal(10, 4)
-  icmsModalidadeBC String?
+  id                         String    @id(map: "RawMaterial_pkey")
+  companyId                  String
+  nome                       String
+  code                       String?
+  sku                        String?
+  gs1Code                    String?
+  customerBarcode            String?
+  group                      String?
+  lote                       String?
+  minStock                   Decimal?  @db.Decimal(12, 4)
+  maxStock                   Decimal?  @db.Decimal(12, 4)
+  currentStock               Decimal?  @db.Decimal(12, 4)
+  weight                     Decimal?  @db.Decimal(12, 4)
+  dangerousGoodsClass        String?
+  tipoMaterial               String?
+  unidadeConsumo             String?
+  fatorConversao             Decimal?  @db.Decimal(12, 4)
+  validadeDias               Int?
+  localizacaoEstoque         String?
+  obsTecnicas                String?
+  ncm                        String?
+  cest                       String?
+  cfop                       String?
+  csosn                      String?
+  unidadeTributavel          String?
+  origem                     String?
+  ipiAliquota                Decimal?  @db.Decimal(10, 4)
+  ipiSituacaoTributaria      String?
+  ipiCodEnquadramento        String?
+  icmsAliquota               Decimal?  @db.Decimal(10, 4)
+  sujeitoIcmsSt              Boolean?
+  mvaAliquota                Decimal?  @db.Decimal(10, 4)
+  valorIcmsSt                Decimal?  @db.Decimal(12, 4)
+  pisSituacaoTributaria      String?
+  pisAliquota                Decimal?  @db.Decimal(10, 4)
+  cofinsSituacaoTributaria   String?
+  cofinsAliquota             Decimal?  @db.Decimal(10, 4)
+  icmsModalidadeBC           String?
   codClassificacaoTributaria String?
-  aliquotaIBSUF Decimal? @db.Decimal(10, 4)
-  aliquotaIBSMun Decimal? @db.Decimal(10, 4)
-  aliquotaCBS Decimal? @db.Decimal(10, 4)
-  fornecedores Json?
-  data      Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime
-  deletedAt DateTime?
+  aliquotaIBSUF              Decimal?  @db.Decimal(10, 4)
+  aliquotaIBSMun             Decimal?  @db.Decimal(10, 4)
+  aliquotaCBS                Decimal?  @db.Decimal(10, 4)
+  fornecedores               Json?
+  data                       Json?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime
+  deletedAt                  DateTime?
 
   @@index([companyId, deletedAt], map: "RawMaterial_companyId_deletedAt_idx")
   @@index([companyId], map: "RawMaterial_companyId_idx")
@@ -277,26 +502,26 @@ model sales {
 }
 
 model suppliers {
-  id        String    @id(map: "Supplier_pkey")
-  companyId String
-  nome      String
-  nomeFantasia String?
-  cnpj      String?
+  id                String    @id(map: "Supplier_pkey")
+  companyId         String
+  nome              String
+  nomeFantasia      String?
+  cnpj              String?
   inscricaoEstadual String?
-  tipoFornecedor String?
-  active    Boolean?  @default(true)
-  observacoes String?
+  tipoFornecedor    String?
+  active            Boolean?  @default(true)
+  observacoes       String?
   condicaoPagamento String?
-  moedaPadrao String?
-  prazoEntrega Int?
-  avaliacao Int?
-  dadosBancarios Json?
-  contacts  Json?
-  endereco  Json?
-  data      Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime
-  deletedAt DateTime?
+  moedaPadrao       String?
+  prazoEntrega      Int?
+  avaliacao         Int?
+  dadosBancarios    Json?
+  contacts          Json?
+  endereco          Json?
+  data              Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+  deletedAt         DateTime?
 
   @@index([companyId, deletedAt], map: "Supplier_companyId_deletedAt_idx")
   @@index([companyId], map: "Supplier_companyId_idx")
@@ -350,46 +575,46 @@ model calibrations {
 }
 
 model purchase_requests {
-  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id String
-  numero_solicitacao String?
-  solicitante_nome String?
-  proveedor_id String?
-  tipo       String?
-  justificativa String?
-  prioridade String?
-  data_necessidade DateTime? @db.Timestamptz(6)
-  moneda     String?
-  produtos   Json?
-  status     String?
-  estado     String?
+  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  numero_solicitacao  String?
+  solicitante_nome    String?
+  proveedor_id        String?
+  tipo                String?
+  justificativa       String?
+  prioridade          String?
+  data_necessidade    DateTime? @db.Timestamptz(6)
+  moneda              String?
+  produtos            Json?
+  status              String?
+  estado              String?
   ordem_compra_numero String?
-  data       Json?
-  created_at DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at DateTime  @default(now()) @db.Timestamptz(6)
-  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  data                Json?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  companies           companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
 }
 
 model purchase_orders {
-  id              String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id      String
-  numero_ordem    String?
-  solicitud_id    String?
-  proveedor_id    String?
-  solicitante_nome String?
-  prazo_entrega   DateTime? @db.Timestamptz(6)
-  forma_pagamento String?
+  id                String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id        String
+  numero_ordem      String?
+  solicitud_id      String?
+  proveedor_id      String?
+  solicitante_nome  String?
+  prazo_entrega     DateTime? @db.Timestamptz(6)
+  forma_pagamento   String?
   transportadora_id String?
-  observacoes     String?
-  produtos        Json?
-  estado          String?
-  fecha_orden     DateTime? @db.Timestamptz(6)
-  data            Json?
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
-  companies       companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  observacoes       String?
+  produtos          Json?
+  estado            String?
+  fecha_orden       DateTime? @db.Timestamptz(6)
+  data              Json?
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
+  companies         companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
 }
