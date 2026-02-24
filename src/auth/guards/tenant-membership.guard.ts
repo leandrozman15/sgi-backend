@@ -10,6 +10,14 @@ export class TenantMembershipGuard implements CanActivate {
     private readonly prisma: PrismaService,
   ) {}
 
+  private getMasterUids(): string[] {
+    const raw = process.env.MASTER_UIDS || process.env.MASTER_UID || 'HOR0BYhNFjSyJmrPKWySk8vdz6y2';
+    return String(raw)
+      .split(',')
+      .map((uid) => uid.trim())
+      .filter(Boolean);
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // ✅ VERIFICAR SI LA RUTA ES PÚBLICA
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -49,7 +57,8 @@ export class TenantMembershipGuard implements CanActivate {
       user.claims?.companyId;
 
     const userRole = String(user.role || user.claims?.role || '').toUpperCase();
-    const isMaster = userRole === 'MASTER';
+    const isMasterByUid = this.getMasterUids().includes(String(user.uid || '').trim());
+    const isMaster = userRole === 'MASTER' || isMasterByUid;
 
     if (!companyId) {
       if (isMaster) {

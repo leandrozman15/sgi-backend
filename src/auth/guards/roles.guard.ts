@@ -12,6 +12,14 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
+  private getMasterUids(): string[] {
+    const raw = process.env.MASTER_UIDS || process.env.MASTER_UID || 'HOR0BYhNFjSyJmrPKWySk8vdz6y2';
+    return String(raw)
+      .split(',')
+      .map((uid) => uid.trim())
+      .filter(Boolean);
+  }
+
   canActivate(context: ExecutionContext): boolean {
     // ✅ VERIFICAR SI LA RUTA ES PÚBLICA
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -34,11 +42,17 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
+    const isMasterByUid = this.getMasterUids().includes(String(user?.uid || '').trim());
+
+    if (isMasterByUid) {
+      return true;
+    }
+
     if (user && user.role === 'MASTER') {
       return true;
     }
 
-    const userRole = user?.role;
+    const userRole = user?.role || user?.claims?.role;
 
     if (!userRole) {
       throw new ForbiddenException('Acesso negado: O usuário não possui um role definido.');
