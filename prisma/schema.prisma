@@ -68,17 +68,35 @@ model companies {
 }
 
 model employees {
-  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  name       String
-  email      String?   @unique
-  document   String?   @unique
-  position   String?
-  department String?
-  status     String?   @default("active")
-  company_id String
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  updated_at DateTime? @default(now()) @db.Timestamp(6)
-  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name                String
+  email               String?   @unique
+  document            String?   @unique
+  cpf                 String?
+  role                String?
+  access_level        String?
+  position            String?
+  department          String?
+  status              String?   @default("active")
+  has_access          Boolean?  @default(false)
+  commission          Decimal?  @db.Decimal(10, 2)
+  phone               String?
+  address             String?
+  registration_number String?
+  start_date          DateTime? @db.Timestamp(6)
+  vacation_days       Int?
+  banco               String?
+  conta               String?
+  pix                 String?
+  tamanho_camisa      String?
+  tamanho_calca       String?
+  numero_botas        String?
+  permissions         Json?
+  data                Json?
+  company_id          String
+  created_at          DateTime? @default(now()) @db.Timestamp(6)
+  updated_at          DateTime? @default(now()) @db.Timestamp(6)
+  companies           companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model financial_transactions {
