@@ -68,10 +68,19 @@ model companies {
   machine_documents            machine_documents[]
   machine_meter_readings       machine_meter_readings[]
   machines                     machines[]
+  inventory_lot_movements      inventory_lot_movements[]
+  inventory_lots               inventory_lots[]
+  inventory_reservations       inventory_reservations[]
+  inventory_stock_balances     inventory_stock_balances[]
+  inventory_storage_positions  inventory_storage_positions[]
+  inventory_storage_zones      inventory_storage_zones[]
+  inventory_warehouse_layouts  inventory_warehouse_layouts[]
   production_orders            production_orders[]
   products                     products[]
   purchase_orders              purchase_orders[]
   purchase_requests            purchase_requests[]
+  sale_items                   sale_items[]
+  sale_status_history          sale_status_history[]
   subscription_history         subscription_history[]
   tax_service_payments         tax_service_payments[]
   user_companies               user_companies[]
@@ -490,15 +499,65 @@ model raw_materials {
 }
 
 model sales {
-  id        String    @id(map: "Sale_pkey")
+  id        String                @id(map: "Sale_pkey")
   companyId String
   data      Json?
-  createdAt DateTime  @default(now())
+  createdAt DateTime              @default(now())
   updatedAt DateTime
   deletedAt DateTime?
+  items     sale_items[]
+  history   sale_status_history[]
 
   @@index([companyId, deletedAt], map: "Sale_companyId_deletedAt_idx")
   @@index([companyId], map: "Sale_companyId_idx")
+}
+
+model sale_items {
+  id              String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id      String
+  sale_id         String
+  line_number     Int?
+  item_type       String?
+  product_id      String?
+  raw_material_id String?
+  sku             String?
+  description     String
+  quantity        Decimal   @db.Decimal(14, 4)
+  unit_price      Decimal   @db.Decimal(14, 4)
+  discount        Decimal?  @db.Decimal(14, 4)
+  tax_amount      Decimal?  @db.Decimal(14, 4)
+  line_total      Decimal   @db.Decimal(14, 4)
+  metadata        Json?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  companies       companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  sales           sales     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "sale_items_company_id_idx")
+  @@index([sale_id], map: "sale_items_sale_id_idx")
+  @@index([product_id], map: "sale_items_product_id_idx")
+  @@index([raw_material_id], map: "sale_items_raw_material_id_idx")
+}
+
+model sale_status_history {
+  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id  String
+  sale_id     String
+  from_status String?
+  to_status   String
+  changed_by  String?
+  changed_at  DateTime  @default(now()) @db.Timestamptz(6)
+  reason      String?
+  metadata    Json?
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  companies   companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  sales       sales     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "sale_status_history_company_id_idx")
+  @@index([sale_id], map: "sale_status_history_sale_id_idx")
+  @@index([to_status], map: "sale_status_history_to_status_idx")
+  @@index([changed_at], map: "sale_status_history_changed_at_idx")
 }
 
 model suppliers {
@@ -561,6 +620,188 @@ model warehouse_locations {
 
   @@unique([companyId, locationId], map: "WarehouseLocation_companyId_locationId_key")
   @@index([companyId], map: "WarehouseLocation_companyId_idx")
+}
+
+model inventory_warehouse_layouts {
+  id            String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id    String
+  code          String
+  name          String
+  description   String?
+  status        String?                   @default("active")
+  width_meters  Decimal?                  @db.Decimal(10, 3)
+  length_meters Decimal?                  @db.Decimal(10, 3)
+  height_meters Decimal?                  @db.Decimal(10, 3)
+  metadata      Json?
+  created_at    DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime                  @default(now()) @db.Timestamptz(6)
+  companies     companies                 @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  storage_zones inventory_storage_zones[]
+
+  @@unique([company_id, code], map: "inventory_warehouse_layouts_company_code_key")
+  @@index([company_id], map: "inventory_warehouse_layouts_company_id_idx")
+  @@index([status], map: "inventory_warehouse_layouts_status_idx")
+}
+
+model inventory_storage_zones {
+  id                          String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id                  String
+  warehouse_layout_id         String
+  code                        String
+  name                        String
+  zone_type                   String?
+  temperature_controlled      Boolean?                      @default(false)
+  humidity_controlled         Boolean?                      @default(false)
+  max_weight_kg               Decimal?                      @db.Decimal(12, 3)
+  max_volume_m3               Decimal?                      @db.Decimal(12, 3)
+  status                      String?                       @default("active")
+  metadata                    Json?
+  created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  companies                   companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  inventory_warehouse_layouts inventory_warehouse_layouts   @relation(fields: [warehouse_layout_id], references: [id], onDelete: Cascade)
+  storage_positions           inventory_storage_positions[]
+
+  @@unique([company_id, warehouse_layout_id, code], map: "inventory_storage_zones_company_layout_code_key")
+  @@index([company_id], map: "inventory_storage_zones_company_id_idx")
+  @@index([warehouse_layout_id], map: "inventory_storage_zones_layout_id_idx")
+  @@index([status], map: "inventory_storage_zones_status_idx")
+}
+
+model inventory_storage_positions {
+  id                      String                     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id              String
+  zone_id                 String
+  code                    String
+  aisle                   String?
+  column_number           Int?
+  level_number            Int?
+  position_type           String?
+  status                  String?                    @default("available")
+  max_weight_kg           Decimal?                   @db.Decimal(12, 3)
+  max_volume_m3           Decimal?                   @db.Decimal(12, 3)
+  barcode                 String?
+  qr_code                 String?
+  metadata                Json?
+  created_at              DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                   @default(now()) @db.Timestamptz(6)
+  companies               companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  inventory_storage_zones inventory_storage_zones    @relation(fields: [zone_id], references: [id], onDelete: Cascade)
+  lot_balances            inventory_stock_balances[]
+  reservations            inventory_reservations[]
+
+  @@unique([company_id, zone_id, code], map: "inventory_storage_positions_company_zone_code_key")
+  @@index([company_id], map: "inventory_storage_positions_company_id_idx")
+  @@index([zone_id], map: "inventory_storage_positions_zone_id_idx")
+  @@index([status], map: "inventory_storage_positions_status_idx")
+}
+
+model inventory_lots {
+  id               String                     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id       String
+  item_type        String
+  raw_material_id  String?
+  product_id       String?
+  lot_code         String
+  supplier_id      String?
+  manufacture_date DateTime?                  @db.Timestamptz(6)
+  expiration_date  DateTime?                  @db.Timestamptz(6)
+  received_at      DateTime?                  @db.Timestamptz(6)
+  quality_status   String?                    @default("approved")
+  traceability_ref String?
+  metadata         Json?
+  created_at       DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime                   @default(now()) @db.Timestamptz(6)
+  companies        companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  lot_balances     inventory_stock_balances[]
+  lot_movements    inventory_lot_movements[]
+  reservations     inventory_reservations[]
+
+  @@unique([company_id, lot_code], map: "inventory_lots_company_lot_code_key")
+  @@index([company_id], map: "inventory_lots_company_id_idx")
+  @@index([item_type], map: "inventory_lots_item_type_idx")
+  @@index([quality_status], map: "inventory_lots_quality_status_idx")
+  @@index([expiration_date], map: "inventory_lots_expiration_date_idx")
+}
+
+model inventory_stock_balances {
+  id                  String                      @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  lot_id              String
+  storage_position_id String
+  quantity_on_hand    Decimal                     @default(0) @db.Decimal(14, 4)
+  quantity_reserved   Decimal                     @default(0) @db.Decimal(14, 4)
+  quantity_available  Decimal                     @default(0) @db.Decimal(14, 4)
+  last_counted_at     DateTime?                   @db.Timestamptz(6)
+  metadata            Json?
+  created_at          DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                    @default(now()) @db.Timestamptz(6)
+  companies           companies                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  inventory_lots      inventory_lots              @relation(fields: [lot_id], references: [id], onDelete: Cascade)
+  storage_positions   inventory_storage_positions @relation(fields: [storage_position_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, lot_id, storage_position_id], map: "inventory_stock_balances_company_lot_position_key")
+  @@index([company_id], map: "inventory_stock_balances_company_id_idx")
+  @@index([lot_id], map: "inventory_stock_balances_lot_id_idx")
+  @@index([storage_position_id], map: "inventory_stock_balances_position_id_idx")
+}
+
+model inventory_lot_movements {
+  id                      String         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id              String
+  lot_id                  String
+  movement_type           String
+  quantity                Decimal        @db.Decimal(14, 4)
+  source_position_id      String?
+  destination_position_id String?
+  reference_type          String?
+  reference_id            String?
+  unit_cost               Decimal?       @db.Decimal(14, 4)
+  total_cost              Decimal?       @db.Decimal(14, 4)
+  movement_date           DateTime       @default(now()) @db.Timestamptz(6)
+  performed_by            String?
+  notes                   String?
+  metadata                Json?
+  created_at              DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime       @default(now()) @db.Timestamptz(6)
+  companies               companies      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  inventory_lots          inventory_lots @relation(fields: [lot_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "inventory_lot_movements_company_id_idx")
+  @@index([lot_id], map: "inventory_lot_movements_lot_id_idx")
+  @@index([movement_type], map: "inventory_lot_movements_movement_type_idx")
+  @@index([movement_date], map: "inventory_lot_movements_movement_date_idx")
+  @@index([source_position_id], map: "inventory_lot_movements_source_position_id_idx")
+  @@index([destination_position_id], map: "inventory_lot_movements_destination_position_id_idx")
+}
+
+model inventory_reservations {
+  id                  String                      @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  lot_id              String
+  storage_position_id String
+  quantity            Decimal                     @db.Decimal(14, 4)
+  reservation_type    String?
+  reference_type      String?
+  reference_id        String?
+  status              String?                     @default("active")
+  reserved_by         String?
+  reserved_at         DateTime                    @default(now()) @db.Timestamptz(6)
+  expires_at          DateTime?                   @db.Timestamptz(6)
+  released_at         DateTime?                   @db.Timestamptz(6)
+  notes               String?
+  metadata            Json?
+  created_at          DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                    @default(now()) @db.Timestamptz(6)
+  companies           companies                   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  inventory_lots      inventory_lots              @relation(fields: [lot_id], references: [id], onDelete: Cascade)
+  storage_positions   inventory_storage_positions @relation(fields: [storage_position_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "inventory_reservations_company_id_idx")
+  @@index([lot_id], map: "inventory_reservations_lot_id_idx")
+  @@index([storage_position_id], map: "inventory_reservations_position_id_idx")
+  @@index([status], map: "inventory_reservations_status_idx")
+  @@index([expires_at], map: "inventory_reservations_expires_at_idx")
 }
 
 model calibrations {
