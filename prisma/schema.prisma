@@ -62,6 +62,8 @@ model companies {
   quality_inspections          quality_inspections[]
   employees                    employees[]
   financial_transactions       financial_transactions[]
+  financial_bank_transactions  financial_bank_transactions[]
+  financial_salary_payments    financial_salary_payments[]
   accounting_chart_accounts    accounting_chart_accounts[]
   accounting_cost_centers      accounting_cost_centers[]
   accounting_fiscal_periods    accounting_fiscal_periods[]
@@ -146,6 +148,57 @@ model financial_transactions {
   created_at  DateTime? @default(now()) @db.Timestamp(6)
   updated_at  DateTime? @default(now()) @db.Timestamp(6)
   companies   companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model financial_bank_transactions {
+  id                String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id        String
+  transaction_type  String
+  category          String?
+  description       String?
+  amount            Decimal   @db.Decimal(14, 4)
+  transaction_date  DateTime  @db.Timestamptz(6)
+  due_date          DateTime? @db.Timestamptz(6)
+  payment_method    String?
+  account_name      String?
+  status            String?   @default("PENDING")
+  reference_type    String?
+  reference_id      String?
+  notes             String?
+  data              Json?
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
+  companies         companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "financial_bank_transactions_company_id_idx")
+  @@index([transaction_date], map: "financial_bank_transactions_transaction_date_idx")
+  @@index([status], map: "financial_bank_transactions_status_idx")
+  @@index([transaction_type], map: "financial_bank_transactions_transaction_type_idx")
+}
+
+model financial_salary_payments {
+  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  employee_id         String?
+  employee_name       String?
+  period_reference    String?
+  payroll_date        DateTime? @db.Timestamptz(6)
+  gross_amount        Decimal?  @db.Decimal(14, 4)
+  discounts_amount    Decimal?  @db.Decimal(14, 4)
+  net_amount          Decimal?  @db.Decimal(14, 4)
+  payment_date        DateTime? @db.Timestamptz(6)
+  payment_method      String?
+  status              String?   @default("PENDING")
+  notes               String?
+  data                Json?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  companies           companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "financial_salary_payments_company_id_idx")
+  @@index([employee_id], map: "financial_salary_payments_employee_id_idx")
+  @@index([period_reference], map: "financial_salary_payments_period_reference_idx")
+  @@index([status], map: "financial_salary_payments_status_idx")
 }
 
 model inventory_movements {

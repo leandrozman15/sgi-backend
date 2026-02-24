@@ -3,107 +3,147 @@ import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
 
 @Injectable()
-export class TaxServicePaymentService {
+export class FinanceService {
   private prisma: PrismaClient;
-  private tableExists: boolean | null = null;
+
+  private readonly resourceToModel: Record<string, string> = {
+    'bank-transactions': 'financial_bank_transactions',
+    'tax-payments': 'tax_service_payments',
+    'salary-payments': 'financial_salary_payments',
+  };
 
   constructor() {
     this.prisma = new PrismaClient();
   }
 
-  private async hasTable(): Promise<boolean> {
-    if (this.tableExists !== null) {
-      return this.tableExists;
-    }
-
-    const rows = await this.prisma.$queryRaw<Array<{ table_name: string }>>`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'tax_service_payments'
-      LIMIT 1
-    `;
-
-    this.tableExists = rows.length > 0;
-    return this.tableExists;
+  private toSnakeCase(input: string) {
+    return input.replace(/[A-Z]/g, (char) => `_${char.toLowerCase()}`);
   }
 
-  async findByCompany(companyId: string) {
-    if (!companyId || !(await this.hasTable())) {
+  private normalizePayload(payload: any) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return payload;
+    }
+
+    const normalized: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(payload)) {
+      const normalizedKey = key.includes('_') ? key : this.toSnakeCase(key);
+      normalized[normalizedKey] = value;
+    }
+
+    return normalized;
+  }
+
+  private getDelegate(resource: string): any {
+    const modelName = this.resourceToModel[resource];
+
+    if (!modelName) {
+      throw new NotFoundException(`Recurso financeiro inválido: ${resource}`);
+    }
+
+    const delegate = (this.prisma as any)[modelName];
+
+    if (!delegate) {
+      throw new NotFoundException(`Model Prisma não encontrado para recurso: ${resource}`);
+    }
+
+    return delegate;
+  }
+
+  async findByResource(resource: string, companyId: string, limit = 200) {
+    if (!companyId) {
       return [];
     }
 
-    return this.prisma.$queryRaw<Array<Record<string, any>>>
-      `SELECT * FROM tax_service_payments WHERE company_id = ${companyId} ORDER BY created_at DESC`;
+    const delegate = this.getDelegate(resource);
+
+    return delegate.findMany({
+      where: { company_id: companyId },
+      orderBy: { created_at: 'desc' },
+      take: Math.max(1, Math.min(limit || 200, 1000)),
+    });
   }
 
-  async findById(id: string, companyId: string) {
-    if (!companyId || !(await this.hasTable())) {
+  async findOneByResource(resource: string, id: string, companyId: string) {
+    if (!companyId) {
       return null;
     }
 
-    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
-      `SELECT * FROM tax_service_payments WHERE id = ${id} AND company_id = ${companyId} LIMIT 1`;
-    return rows[0] ?? null;
+    const delegate = this.getDelegate(resource);
+
+    return delegate.findFirst({
+      where: {
+        id,
+        company_id: companyId,
+      },
+    });
   }
 
-  async createItem(data: any, companyId: string) {
+  async createByResource(resource: string, payload: any, companyId: string) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
-    if (!(await this.hasTable())) {
-      throw new NotFoundException('Tabela tax_service_payments não existe no banco atual');
-    }
 
-    const payload = data?.data ?? data ?? null;
-    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
-      `
-        INSERT INTO tax_service_payments (id, company_id, data, created_at, updated_at)
-        VALUES (${randomUUID()}, ${companyId}, ${payload}, NOW(), NOW())
-        RETURNING *
-      `;
+    const delegate = this.getDelegate(resource);
+    const data = this.normalizePayload(payload);
 
-    return rows[0];
+    return delegate.create({
+      data: {
+        id: data?.id ?? randomUUID(),
+        ...data,
+        company_id: companyId,
+      },
+    });
   }
 
-  async updateItem(id: string, data: any, companyId: string) {
+  async updateByResource(resource: string, id: string, payload: any, companyId: string) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
-    if (!(await this.hasTable())) {
-      throw new NotFoundException('Tabela tax_service_payments não existe no banco atual');
+
+    const delegate = this.getDelegate(resource);
+
+    const existing = await delegate.findFirst({
+      where: {
+        id,
+        company_id: companyId,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Registro financeiro não encontrado');
     }
 
-    const payload = data?.data ?? data ?? null;
-    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
-      `
-        UPDATE tax_service_payments
-        SET data = ${payload}, updated_at = NOW()
-        WHERE id = ${id} AND company_id = ${companyId}
-        RETURNING *
-      `;
+    const data = this.normalizePayload(payload);
 
-    if (rows.length === 0) {
-      throw new NotFoundException('Pagamento de taxa não encontrado');
-    }
-
-    return rows[0];
+    return delegate.update({
+      where: { id },
+      data: {
+        ...data,
+        company_id: companyId,
+      },
+    });
   }
 
-  async deleteItem(id: string, companyId: string) {
+  async deleteByResource(resource: string, id: string, companyId: string) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
-    if (!(await this.hasTable())) {
-      throw new NotFoundException('Tabela tax_service_payments não existe no banco atual');
+
+    const delegate = this.getDelegate(resource);
+
+    const deleted = await delegate.deleteMany({
+      where: {
+        id,
+        company_id: companyId,
+      },
+    });
+
+    if (deleted.count === 0) {
+      throw new NotFoundException('Registro financeiro não encontrado');
     }
 
-    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>
-      `DELETE FROM tax_service_payments WHERE id = ${id} AND company_id = ${companyId} RETURNING id`;
-
-    if (rows.length === 0) {
-      throw new NotFoundException('Pagamento de taxa não encontrado');
-    }
-
-    return { id: rows[0].id };
+    return { id };
   }
 }
