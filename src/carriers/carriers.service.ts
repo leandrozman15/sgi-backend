@@ -10,15 +10,41 @@ export class CarrierService {
     this.prisma = new PrismaClient();
   }
 
+  private normalizeExtraData(input: any): Record<string, any> {
+    const base = input?.data && typeof input.data === 'object' ? input.data : {};
+
+    return {
+      ...base,
+      ...(input?.cnpj !== undefined ? { cnpj: input.cnpj } : {}),
+      ...(input?.ie !== undefined ? { ie: input.ie } : {}),
+      ...(input?.contacts !== undefined ? { contacts: input.contacts } : {}),
+      ...(input?.endereco !== undefined ? { endereco: input.endereco } : {}),
+    };
+  }
+
+  private toClientCarrier(entity: any) {
+    const extra = entity?.data && typeof entity.data === 'object' ? entity.data : {};
+
+    return {
+      ...entity,
+      cnpj: entity.cnpj ?? extra.cnpj ?? null,
+      ie: entity.ie ?? extra.ie ?? null,
+      contacts: entity.contacts ?? extra.contacts ?? [],
+      endereco: entity.endereco ?? extra.endereco ?? null,
+    };
+  }
+
   async findByCompany(companyId: string) {
     if (!companyId) {
       return [];
     }
 
-    return this.prisma.carriers.findMany({
+    const rows = await this.prisma.carriers.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
     });
+
+    return rows.map((row) => this.toClientCarrier(row));
   }
 
   async findById(id: string, companyId: string) {
@@ -26,12 +52,14 @@ export class CarrierService {
       return null;
     }
 
-    return this.prisma.carriers.findFirst({
+    const row = await this.prisma.carriers.findFirst({
       where: {
         id,
         companyId,
       },
     });
+
+    return row ? this.toClientCarrier(row) : null;
   }
 
   async createItem(data: any, companyId: string) {
@@ -43,15 +71,23 @@ export class CarrierService {
       throw new NotFoundException('Nome da transportadora é obrigatório');
     }
 
-    return this.prisma.carriers.create({
+    const extra = this.normalizeExtraData(data);
+
+    const created = await this.prisma.carriers.create({
       data: {
         id: randomUUID(),
         companyId,
         nome: data.nome,
-        data: data?.data ?? null,
+        cnpj: data?.cnpj ?? null,
+        ie: data?.ie ?? null,
+        contacts: data?.contacts ?? null,
+        endereco: data?.endereco ?? null,
+        data: Object.keys(extra).length > 0 ? extra : undefined,
         updatedAt: new Date(),
       },
     });
+
+    return this.toClientCarrier(created);
   }
 
   async updateItem(id: string, data: any, companyId: string) {
@@ -70,14 +106,25 @@ export class CarrierService {
       throw new NotFoundException('Transportadora não encontrada');
     }
 
-    return this.prisma.carriers.update({
+    const extra = {
+      ...(existing?.data && typeof existing.data === 'object' ? existing.data : {}),
+      ...this.normalizeExtraData(data),
+    };
+
+    const updated = await this.prisma.carriers.update({
       where: { id },
       data: {
         ...(data?.nome !== undefined ? { nome: data.nome } : {}),
-        ...(data?.data !== undefined ? { data: data.data } : {}),
+        ...(data?.cnpj !== undefined ? { cnpj: data.cnpj } : {}),
+        ...(data?.ie !== undefined ? { ie: data.ie } : {}),
+        ...(data?.contacts !== undefined ? { contacts: data.contacts } : {}),
+        ...(data?.endereco !== undefined ? { endereco: data.endereco } : {}),
+        data: Object.keys(extra).length > 0 ? extra : undefined,
         updatedAt: new Date(),
       },
     });
+
+    return this.toClientCarrier(updated);
   }
 
   async deleteItem(id: string, companyId: string) {

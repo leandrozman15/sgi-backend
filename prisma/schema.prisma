@@ -23,6 +23,10 @@ model carriers {
   id        String    @id(map: "Carrier_pkey")
   companyId String
   nome      String
+  cnpj      String?
+  ie        String?
+  contacts  Json?
+  endereco  Json?
   data      Json?
   createdAt DateTime  @default(now())
   updatedAt DateTime
@@ -59,6 +63,7 @@ model companies {
   machines               machines[]
   production_orders      production_orders[]
   products               products[]
+  purchase_orders        purchase_orders[]
   purchase_requests      purchase_requests[]
   subscription_history   subscription_history[]
   tax_service_payments   tax_service_payments[]
@@ -275,6 +280,19 @@ model suppliers {
   id        String    @id(map: "Supplier_pkey")
   companyId String
   nome      String
+  nomeFantasia String?
+  cnpj      String?
+  inscricaoEstadual String?
+  tipoFornecedor String?
+  active    Boolean?  @default(true)
+  observacoes String?
+  condicaoPagamento String?
+  moedaPadrao String?
+  prazoEntrega Int?
+  avaliacao Int?
+  dadosBancarios Json?
+  contacts  Json?
+  endereco  Json?
   data      Json?
   createdAt DateTime  @default(now())
   updatedAt DateTime
@@ -334,10 +352,44 @@ model calibrations {
 model purchase_requests {
   id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id String
+  numero_solicitacao String?
+  solicitante_nome String?
+  proveedor_id String?
+  tipo       String?
+  justificativa String?
+  prioridade String?
+  data_necessidade DateTime? @db.Timestamptz(6)
+  moneda     String?
+  produtos   Json?
+  status     String?
+  estado     String?
+  ordem_compra_numero String?
   data       Json?
   created_at DateTime  @default(now()) @db.Timestamptz(6)
   updated_at DateTime  @default(now()) @db.Timestamptz(6)
   companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+}
+
+model purchase_orders {
+  id              String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id      String
+  numero_ordem    String?
+  solicitud_id    String?
+  proveedor_id    String?
+  solicitante_nome String?
+  prazo_entrega   DateTime? @db.Timestamptz(6)
+  forma_pagamento String?
+  transportadora_id String?
+  observacoes     String?
+  produtos        Json?
+  estado          String?
+  fecha_orden     DateTime? @db.Timestamptz(6)
+  data            Json?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  companies       companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
 }

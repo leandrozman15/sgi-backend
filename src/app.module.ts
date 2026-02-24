@@ -23,6 +23,7 @@ import { SupplierModule } from './suppliers/suppliers.module';
 import { TaxServicePaymentModule } from './finance/finance.module';
 import { WarehouseLocationModule } from './warehouse/warehouse.module';
 import { PurchaseRequestModule } from './purchase-requests/purchase-requests.module';
+import { PurchaseOrderModule } from './purchase-orders/purchase-orders.module';
 import { WorkAccidentModule } from './hr-extras/hr-extras.module';
 
 // ✅ IMPORTAR INTERNAL MODULE
@@ -59,6 +60,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     TaxServicePaymentModule,
     WarehouseLocationModule,
     PurchaseRequestModule,
+    PurchaseOrderModule,
     WorkAccidentModule,
     
     // ✅ AGREGAR INTERNAL MODULE AQUÍ
