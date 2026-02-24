@@ -27,6 +27,7 @@ import { PurchaseOrderModule } from './purchase-orders/purchase-orders.module';
 import { WorkAccidentModule } from './hr-extras/hr-extras.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { AccountingModule } from './accounting/accounting.module';
+import { AnalysisModule } from './analysis/analysis.module';
 
 // ✅ IMPORTAR INTERNAL MODULE
 import { InternalModule } from './internal/internal.module';
@@ -66,6 +67,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     WorkAccidentModule,
     MaintenanceModule,
     AccountingModule,
+    AnalysisModule,
     
     // ✅ AGREGAR INTERNAL MODULE AQUÍ
     InternalModule,
