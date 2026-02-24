@@ -5,6 +5,20 @@ import * as admin from 'firebase-admin';
 export class AuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
+
+    if (request.user?.uid) {
+      const headerCompanyIdRaw = request.headers?.['x-company-id'];
+      const headerCompanyId = Array.isArray(headerCompanyIdRaw)
+        ? headerCompanyIdRaw[0]
+        : headerCompanyIdRaw;
+
+      if (!request.user.companyId && headerCompanyId) {
+        request.user.companyId = String(headerCompanyId);
+      }
+
+      return true;
+    }
+
     const token = this.extractToken(request);
 
     if (!token) {
@@ -32,12 +46,18 @@ export class AuthGuard implements CanActivate {
     try {
       const decodedToken = await admin.auth().verifyIdToken(token);
       console.log('✅ Token válido para:', decodedToken.email);
+
+      const headerCompanyIdRaw = request.headers?.['x-company-id'];
+      const headerCompanyId = Array.isArray(headerCompanyIdRaw)
+        ? headerCompanyIdRaw[0]
+        : headerCompanyIdRaw;
       
       request.user = {
         uid: decodedToken.uid,
         email: decodedToken.email,
         role: decodedToken.role || null,
-        companyId: decodedToken.companyId || null,
+        companyId: headerCompanyId || decodedToken.companyId || null,
+        claims: decodedToken,
       };
       return true;
     } catch (error) {
