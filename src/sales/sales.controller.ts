@@ -17,6 +17,12 @@ export class SaleController {
     return this.service.findByCompany(companyId);
   }
 
+  @Get('lookup/access-key/:accessKey')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async findByAccessKey(@Param('accessKey') accessKey: string, @Tenant() companyId: string) {
+    return this.service.findByAccessKey(accessKey, companyId);
+  }
+
   @Get(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {

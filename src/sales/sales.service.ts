@@ -65,6 +65,24 @@ export class SaleService {
     return row ? this.toClient(row) : null;
   }
 
+  async findByAccessKey(accessKey: string, companyId: string) {
+    if (!companyId || !accessKey) {
+      return null;
+    }
+
+    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+      `
+        SELECT *
+        FROM "sales"
+        WHERE "companyId" = ${companyId}
+          AND COALESCE(data->>'chaveAcesso', '') = ${accessKey}
+        ORDER BY "createdAt" DESC
+        LIMIT 1
+      `;
+
+    return rows[0] ? this.toClient(rows[0]) : null;
+  }
+
   async createItem(data: any, companyId: string) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
