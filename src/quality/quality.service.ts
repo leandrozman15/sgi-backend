@@ -5,62 +5,157 @@ import { randomUUID } from 'crypto';
 @Injectable()
 export class CalibrationService {
   private prisma: PrismaClient;
-  private tableExists: boolean | null = null;
+  private tableExistsMap = new Map<string, boolean>();
 
   constructor() {
     this.prisma = new PrismaClient();
   }
 
-  private async hasTable(): Promise<boolean> {
-    if (this.tableExists !== null) {
-      return this.tableExists;
+  private getTableByEntityType(entityType?: string) {
+    switch (entityType) {
+      case 'inspection':
+        return 'quality_inspections';
+      case 'complaint':
+        return 'quality_complaints';
+      case 'calibration':
+      default:
+        return 'calibrations';
+    }
+  }
+
+  private getEntityTypeByTable(tableName: string) {
+    switch (tableName) {
+      case 'quality_inspections':
+        return 'inspection';
+      case 'quality_complaints':
+        return 'complaint';
+      case 'calibrations':
+      default:
+        return 'calibration';
+    }
+  }
+
+  private async hasTable(tableName: string): Promise<boolean> {
+    if (this.tableExistsMap.has(tableName)) {
+      return this.tableExistsMap.get(tableName) || false;
     }
 
     const rows = await this.prisma.$queryRaw<Array<{ table_name: string }>>`
       SELECT table_name
       FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'calibrations'
+      WHERE table_schema = 'public' AND table_name = ${tableName}
       LIMIT 1
     `;
 
-    this.tableExists = rows.length > 0;
-    return this.tableExists;
+    const exists = rows.length > 0;
+    this.tableExistsMap.set(tableName, exists);
+    return exists;
   }
 
-  async findByCompany(companyId: string) {
-    if (!companyId || !(await this.hasTable())) {
+  private async listByTable(tableName: string, companyId: string, entityType: string) {
+    if (!(await this.hasTable(tableName))) {
       return [];
     }
 
-    return this.prisma.$queryRaw<Array<Record<string, any>>>
-      `SELECT * FROM calibrations WHERE company_id = ${companyId} ORDER BY created_at DESC`;
+    const rows = await this.prisma.$queryRawUnsafe<Array<Record<string, any>>>(
+      `SELECT * FROM ${tableName} WHERE company_id = $1 ORDER BY created_at DESC`,
+      companyId,
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      data: {
+        ...(row?.data && typeof row.data === 'object' ? row.data : {}),
+        entityType,
+      },
+    }));
+  }
+
+  private async findOneAcrossTables(id: string, companyId: string) {
+    const tables = ['quality_inspections', 'quality_complaints', 'calibrations'];
+
+    for (const tableName of tables) {
+      if (!(await this.hasTable(tableName))) continue;
+
+      const rows = await this.prisma.$queryRawUnsafe<Array<Record<string, any>>>(
+        `SELECT * FROM ${tableName} WHERE id = $1 AND company_id = $2 LIMIT 1`,
+        id,
+        companyId,
+      );
+
+      if (rows.length > 0) {
+        const row = rows[0];
+        const entityType = this.getEntityTypeByTable(tableName);
+        return {
+          tableName,
+          row: {
+            ...row,
+            data: {
+              ...(row?.data && typeof row.data === 'object' ? row.data : {}),
+              entityType,
+            },
+          },
+        };
+      }
+    }
+
+    return null;
+  }
+
+  async findByCompany(companyId: string) {
+    if (!companyId) {
+      return [];
+    }
+
+    const [inspections, complaints, calibrations] = await Promise.all([
+      this.listByTable('quality_inspections', companyId, 'inspection'),
+      this.listByTable('quality_complaints', companyId, 'complaint'),
+      this.listByTable('calibrations', companyId, 'calibration'),
+    ]);
+
+    const rows: Array<Record<string, any>> = [...inspections, ...complaints, ...calibrations];
+
+    return rows.sort((a, b) => {
+      const aDate = new Date(a?.updated_at || a?.created_at || 0).getTime();
+      const bDate = new Date(b?.updated_at || b?.created_at || 0).getTime();
+      return bDate - aDate;
+    });
   }
 
   async findById(id: string, companyId: string) {
-    if (!companyId || !(await this.hasTable())) {
+    if (!companyId) {
       return null;
     }
 
-    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
-      `SELECT * FROM calibrations WHERE id = ${id} AND company_id = ${companyId} LIMIT 1`;
-    return rows[0] ?? null;
+    const found = await this.findOneAcrossTables(id, companyId);
+    return found?.row ?? null;
   }
 
   async createItem(data: any, companyId: string) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
-    if (!(await this.hasTable())) {
-      throw new NotFoundException('Tabela calibrations não existe no banco atual');
+
+    const entityType = data?.entityType || data?.data?.entityType || 'calibration';
+    const tableName = this.getTableByEntityType(entityType);
+
+    if (!(await this.hasTable(tableName))) {
+      throw new NotFoundException(`Tabela ${tableName} não existe no banco atual`);
     }
 
-    const payload = data?.data ?? data ?? null;
-    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
-      `
-        INSERT INTO calibrations (id, company_id, data, created_at, updated_at)
-        VALUES (${randomUUID()}, ${companyId}, ${payload}, NOW(), NOW())
-        RETURNING *
-      `;
+    const payload = {
+      ...(data?.data && typeof data.data === 'object' ? data.data : data ?? {}),
+      entityType,
+    };
+
+    const rows = await this.prisma.$queryRawUnsafe<Array<Record<string, any>>>(
+      `INSERT INTO ${tableName} (id, company_id, data, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       RETURNING *`,
+      randomUUID(),
+      companyId,
+      payload,
+    );
 
     return rows[0];
   }
@@ -69,21 +164,30 @@ export class CalibrationService {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
-    if (!(await this.hasTable())) {
-      throw new NotFoundException('Tabela calibrations não existe no banco atual');
+
+    const existing = await this.findOneAcrossTables(id, companyId);
+    if (!existing) {
+      throw new NotFoundException('Registro de qualidade não encontrado');
     }
 
-    const payload = data?.data ?? data ?? null;
-    const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
-      `
-        UPDATE calibrations
-        SET data = ${payload}, updated_at = NOW()
-        WHERE id = ${id} AND company_id = ${companyId}
-        RETURNING *
-      `;
+    const payload = {
+      ...(existing?.row?.data && typeof existing.row.data === 'object' ? existing.row.data : {}),
+      ...(data?.data && typeof data.data === 'object' ? data.data : data ?? {}),
+      entityType: this.getEntityTypeByTable(existing.tableName),
+    };
+
+    const rows = await this.prisma.$queryRawUnsafe<Array<Record<string, any>>>(
+      `UPDATE ${existing.tableName}
+       SET data = $1, updated_at = NOW()
+       WHERE id = $2 AND company_id = $3
+       RETURNING *`,
+      payload,
+      id,
+      companyId,
+    );
 
     if (rows.length === 0) {
-      throw new NotFoundException('Calibração não encontrada');
+      throw new NotFoundException('Registro de qualidade não encontrado');
     }
 
     return rows[0];
@@ -93,15 +197,20 @@ export class CalibrationService {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
-    if (!(await this.hasTable())) {
-      throw new NotFoundException('Tabela calibrations não existe no banco atual');
+
+    const existing = await this.findOneAcrossTables(id, companyId);
+    if (!existing) {
+      throw new NotFoundException('Registro de qualidade não encontrado');
     }
 
-    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>
-      `DELETE FROM calibrations WHERE id = ${id} AND company_id = ${companyId} RETURNING id`;
+    const rows = await this.prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `DELETE FROM ${existing.tableName} WHERE id = $1 AND company_id = $2 RETURNING id`,
+      id,
+      companyId,
+    );
 
     if (rows.length === 0) {
-      throw new NotFoundException('Calibração não encontrada');
+      throw new NotFoundException('Registro de qualidade não encontrado');
     }
 
     return { id: rows[0].id };
