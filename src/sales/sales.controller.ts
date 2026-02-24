@@ -23,6 +23,32 @@ export class SaleController {
     return this.service.findByAccessKey(accessKey, companyId);
   }
 
+  @Get(':id/fiscal-history')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async getFiscalHistory(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.getFiscalHistory(id, companyId);
+  }
+
+  @Post(':id/fiscal-document')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async upsertFiscalDocument(
+    @Param('id') id: string,
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.upsertFiscalDocument(id, companyId, payload);
+  }
+
+  @Post(':id/fiscal-event')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async createFiscalEvent(
+    @Param('id') id: string,
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.createFiscalEvent(id, companyId, payload);
+  }
+
   @Get(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {
