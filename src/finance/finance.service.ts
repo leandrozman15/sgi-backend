@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../common/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
 @Injectable()
 export class FinanceService {
-  private prisma: PrismaClient;
+  private prisma: PrismaService;
 
   private readonly resourceToModel: Record<string, string> = {
     'bank-transactions': 'financial_bank_transactions',
@@ -12,8 +12,8 @@ export class FinanceService {
     'salary-payments': 'financial_salary_payments',
   };
 
-  constructor() {
-    this.prisma = new PrismaClient();
+  constructor(prisma: PrismaService) {
+    this.prisma = prisma;
   }
 
   private toSnakeCase(input: string) {

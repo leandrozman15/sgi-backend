@@ -7,15 +7,15 @@ import {
 } from '@nestjs/common';
 import { getAuth } from 'firebase-admin/auth';
 import { BootstrapCompanyDto } from './dto/bootstrap-company.dto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 @Injectable()
 export class InternalService {
   private readonly logger = new Logger(InternalService.name);
-  private readonly prisma: PrismaClient;
+  private readonly prisma: PrismaService;
 
-  constructor() {
-    this.prisma = new PrismaClient();
+  constructor(prisma: PrismaService) {
+    this.prisma = prisma;
   }
 
   /**

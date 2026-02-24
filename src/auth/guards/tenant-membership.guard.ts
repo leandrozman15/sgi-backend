@@ -1,17 +1,14 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PrismaClient } from '@prisma/client';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
 export class TenantMembershipGuard implements CanActivate {
-  private prisma: PrismaClient;
-
   constructor(
     private reflector: Reflector,
-  ) {
-    this.prisma = new PrismaClient();
-  }
+    private readonly prisma: PrismaService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // ✅ VERIFICAR SI LA RUTA ES PÚBLICA

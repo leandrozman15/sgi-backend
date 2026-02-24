@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 type DashboardPeriod = 'today' | 'week' | 'month' | 'year';
 
 @Injectable()
 export class AnalysisService {
-  private prisma: PrismaClient;
+  private prisma: PrismaService;
 
-  constructor() {
-    this.prisma = new PrismaClient();
+  constructor(prisma: PrismaService) {
+    this.prisma = prisma;
   }
 
   private toNumber(value: any): number {

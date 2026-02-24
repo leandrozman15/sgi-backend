@@ -28,6 +28,7 @@ import { WorkAccidentModule } from './hr-extras/hr-extras.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { AccountingModule } from './accounting/accounting.module';
 import { AnalysisModule } from './analysis/analysis.module';
+import { PrismaModule } from './common/prisma/prisma.module';
 
 // ✅ IMPORTAR INTERNAL MODULE
 import { InternalModule } from './internal/internal.module';
@@ -41,6 +42,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
   imports: [
     // Módulos Core
     ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
     AuthModule,
     HealthModule,
 

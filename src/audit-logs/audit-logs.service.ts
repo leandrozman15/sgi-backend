@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../common/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AuditLogService {
-  private prisma: PrismaClient;
+  private prisma: PrismaService;
 
-  constructor() {
-    this.prisma = new PrismaClient();
+  constructor(prisma: PrismaService) {
+    this.prisma = prisma;
   }
 
   async findByCompany(companyId: string) {

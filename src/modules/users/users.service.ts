@@ -1,14 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import * as admin from 'firebase-admin';
-import { PrismaClient } from '@prisma/client';
 import { UserRole, UserClaims } from '../../types/roles';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
 export class UsersService {
   private auth: admin.auth.Auth;
-  private prisma: PrismaClient;
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     if (admin.apps.length === 0) {
       try {
         console.log('🔧 Inicializando UsersService...');
@@ -35,7 +34,6 @@ export class UsersService {
       }
     }
     this.auth = admin.auth();
-    this.prisma = new PrismaClient();
   }
 
   async setUserRole(uid: string, role: UserRole, companyId: string): Promise<UserClaims> {

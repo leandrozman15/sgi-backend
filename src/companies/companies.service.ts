@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { getAuth } from 'firebase-admin/auth';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 type AdminBootstrapPayload = {
   name: string;
@@ -13,10 +14,10 @@ type AdminBootstrapPayload = {
 
 @Injectable()
 export class CompanyService {
-  private prisma: PrismaClient;
+  private prisma: PrismaService;
 
-  constructor() {
-    this.prisma = new PrismaClient();
+  constructor(prisma: PrismaService) {
+    this.prisma = prisma;
   }
 
   private normalizePlan(plan?: string): string {

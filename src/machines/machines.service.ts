@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 @Injectable()
 export class MachineService {
-  private prisma: PrismaClient;
+  private prisma: PrismaService;
 
-  constructor() {
-    this.prisma = new PrismaClient();
+  constructor(prisma: PrismaService) {
+    this.prisma = prisma;
   }
 
   private parseDate(value: any): Date | null {
