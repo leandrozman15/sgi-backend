@@ -160,8 +160,45 @@ model products {
   id                String              @id @default(dbgenerated("(gen_random_uuid())::text"))
   name              String
   code              String?             @unique
+  sku               String?
+  published         Boolean?            @default(false)
+  gs1_code          String?
+  customer_barcode  String?
+  type              String?
   description       String?
   price             Decimal?            @db.Decimal(10, 2)
+  current_stock     Int?
+  weight            Decimal?            @db.Decimal(10, 3)
+  dangerous_goods_class String?
+  country_of_origin String?
+  ncm               String?
+  cest              String?
+  cfop              String?
+  csosn             String?
+  ipi_aliquota      Decimal?            @db.Decimal(10, 4)
+  ipi_situacao_tributaria String?
+  ipi_cod_enquadramento String?
+  icms_aliquota     Decimal?            @db.Decimal(10, 4)
+  sujeito_icms_st   Boolean?
+  mva_aliquota      Decimal?            @db.Decimal(10, 4)
+  valor_icms_st     Decimal?            @db.Decimal(12, 4)
+  origem_mercadoria String?
+  unidade_tributavel String?
+  pis_situacao_tributaria String?
+  pis_aliquota      Decimal?            @db.Decimal(10, 4)
+  cofins_situacao_tributaria String?
+  cofins_aliquota   Decimal?            @db.Decimal(10, 4)
+  icms_modalidade_bc String?
+  cod_classificacao_tributaria String?
+  aliquota_ibs_uf   Decimal?            @db.Decimal(10, 4)
+  aliquota_ibs_mun  Decimal?            @db.Decimal(10, 4)
+  aliquota_cbs      Decimal?            @db.Decimal(10, 4)
+  image_urls        Json?
+  variants          Json?
+  raw_materials     Json?
+  stages            Json?
+  technical_specs   Json?
+  data              Json?
   company_id        String
   created_at        DateTime?           @default(now()) @db.Timestamp(6)
   updated_at        DateTime?           @default(now()) @db.Timestamp(6)
@@ -173,6 +210,46 @@ model raw_materials {
   id        String    @id(map: "RawMaterial_pkey")
   companyId String
   nome      String
+  code      String?
+  sku       String?
+  gs1Code   String?
+  customerBarcode String?
+  group     String?
+  lote      String?
+  minStock  Decimal?  @db.Decimal(12, 4)
+  maxStock  Decimal?  @db.Decimal(12, 4)
+  currentStock Decimal? @db.Decimal(12, 4)
+  weight    Decimal?  @db.Decimal(12, 4)
+  dangerousGoodsClass String?
+  tipoMaterial String?
+  unidadeConsumo String?
+  fatorConversao Decimal? @db.Decimal(12, 4)
+  validadeDias Int?
+  localizacaoEstoque String?
+  obsTecnicas String?
+  ncm       String?
+  cest      String?
+  cfop      String?
+  csosn     String?
+  unidadeTributavel String?
+  origem    String?
+  ipiAliquota Decimal? @db.Decimal(10, 4)
+  ipiSituacaoTributaria String?
+  ipiCodEnquadramento String?
+  icmsAliquota Decimal? @db.Decimal(10, 4)
+  sujeitoIcmsSt Boolean?
+  mvaAliquota Decimal? @db.Decimal(10, 4)
+  valorIcmsSt Decimal? @db.Decimal(12, 4)
+  pisSituacaoTributaria String?
+  pisAliquota Decimal? @db.Decimal(10, 4)
+  cofinsSituacaoTributaria String?
+  cofinsAliquota Decimal? @db.Decimal(10, 4)
+  icmsModalidadeBC String?
+  codClassificacaoTributaria String?
+  aliquotaIBSUF Decimal? @db.Decimal(10, 4)
+  aliquotaIBSMun Decimal? @db.Decimal(10, 4)
+  aliquotaCBS Decimal? @db.Decimal(10, 4)
+  fornecedores Json?
   data      Json?
   createdAt DateTime  @default(now())
   updatedAt DateTime
