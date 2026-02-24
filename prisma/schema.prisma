@@ -62,6 +62,13 @@ model companies {
   quality_inspections          quality_inspections[]
   employees                    employees[]
   financial_transactions       financial_transactions[]
+  accounting_chart_accounts    accounting_chart_accounts[]
+  accounting_cost_centers      accounting_cost_centers[]
+  accounting_fiscal_periods    accounting_fiscal_periods[]
+  accounting_journal_entries   accounting_journal_entries[]
+  accounting_journal_entry_lines accounting_journal_entry_lines[]
+  accounting_accounts_receivable accounting_accounts_receivable[]
+  accounting_accounts_payable  accounting_accounts_payable[]
   maintenance_downtimes        maintenance_downtimes[]
   maintenance_plans            maintenance_plans[]
   maintenance_schedules        maintenance_schedules[]
@@ -88,6 +95,7 @@ model companies {
   sale_items                   sale_items[]
   sales_fiscal_documents       sales_fiscal_documents[]
   sales_fiscal_events          sales_fiscal_events[]
+  fiscal_tax_apportionments    fiscal_tax_apportionments[]
   sale_status_history          sale_status_history[]
   subscription_history         subscription_history[]
   tax_service_payments         tax_service_payments[]
@@ -592,6 +600,7 @@ model sales_fiscal_documents {
   companies            companies            @relation(fields: [company_id], references: [id], onDelete: Cascade)
   sales                sales?               @relation(fields: [sale_id], references: [id], onDelete: SetNull)
   events               sales_fiscal_events[]
+  receivable_titles    accounting_accounts_receivable[]
 
   @@unique([company_id, access_key], map: "sales_fiscal_documents_company_access_key_key")
   @@index([company_id], map: "sales_fiscal_documents_company_id_idx")
@@ -619,6 +628,230 @@ model sales_fiscal_events {
   @@index([fiscal_document_id], map: "sales_fiscal_events_document_id_idx")
   @@index([event_type], map: "sales_fiscal_events_event_type_idx")
   @@index([event_date], map: "sales_fiscal_events_event_date_idx")
+}
+
+model accounting_fiscal_periods {
+  id                 String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id         String
+  period_code        String
+  year               Int
+  month              Int?
+  quarter            Int?
+  start_date         DateTime                      @db.Timestamptz(6)
+  end_date           DateTime                      @db.Timestamptz(6)
+  status             String?                       @default("OPEN")
+  closed_at          DateTime?                     @db.Timestamptz(6)
+  notes              String?
+  data               Json?
+  created_at         DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                      @default(now()) @db.Timestamptz(6)
+  companies          companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  journal_entries    accounting_journal_entries[]
+  receivable_titles  accounting_accounts_receivable[]
+  payable_titles     accounting_accounts_payable[]
+  tax_apportionments fiscal_tax_apportionments[]
+
+  @@unique([company_id, period_code], map: "accounting_fiscal_periods_company_period_code_key")
+  @@index([company_id], map: "accounting_fiscal_periods_company_id_idx")
+  @@index([year, month], map: "accounting_fiscal_periods_year_month_idx")
+  @@index([status], map: "accounting_fiscal_periods_status_idx")
+}
+
+model accounting_chart_accounts {
+  id                   String                            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id           String
+  code                 String
+  name                 String
+  account_type         String
+  account_group        String?
+  parent_account_id    String?
+  level                Int?
+  is_postable          Boolean?                          @default(true)
+  is_active            Boolean?                          @default(true)
+  metadata             Json?
+  created_at           DateTime                          @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                          @default(now()) @db.Timestamptz(6)
+  companies            companies                         @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  parent_account       accounting_chart_accounts?        @relation("accounting_chart_accounts_hierarchy", fields: [parent_account_id], references: [id], onDelete: SetNull)
+  child_accounts       accounting_chart_accounts[]       @relation("accounting_chart_accounts_hierarchy")
+  journal_entry_lines  accounting_journal_entry_lines[]
+  receivable_titles    accounting_accounts_receivable[]
+  payable_titles       accounting_accounts_payable[]
+
+  @@unique([company_id, code], map: "accounting_chart_accounts_company_code_key")
+  @@index([company_id], map: "accounting_chart_accounts_company_id_idx")
+  @@index([account_type], map: "accounting_chart_accounts_account_type_idx")
+  @@index([parent_account_id], map: "accounting_chart_accounts_parent_account_id_idx")
+  @@index([is_active], map: "accounting_chart_accounts_is_active_idx")
+}
+
+model accounting_cost_centers {
+  id                    String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id            String
+  code                  String
+  name                  String
+  parent_cost_center_id String?
+  is_active             Boolean?                         @default(true)
+  metadata              Json?
+  created_at            DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                         @default(now()) @db.Timestamptz(6)
+  companies             companies                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  parent_cost_center    accounting_cost_centers?         @relation("accounting_cost_centers_hierarchy", fields: [parent_cost_center_id], references: [id], onDelete: SetNull)
+  child_cost_centers    accounting_cost_centers[]        @relation("accounting_cost_centers_hierarchy")
+  journal_entries       accounting_journal_entries[]
+  journal_entry_lines   accounting_journal_entry_lines[]
+
+  @@unique([company_id, code], map: "accounting_cost_centers_company_code_key")
+  @@index([company_id], map: "accounting_cost_centers_company_id_idx")
+  @@index([parent_cost_center_id], map: "accounting_cost_centers_parent_cost_center_id_idx")
+  @@index([is_active], map: "accounting_cost_centers_is_active_idx")
+}
+
+model accounting_journal_entries {
+  id                 String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id         String
+  entry_number       String
+  entry_date         DateTime                         @db.Timestamptz(6)
+  description        String?
+  status             String?                          @default("DRAFT")
+  source_module      String?
+  source_id          String?
+  fiscal_period_id   String?
+  cost_center_id     String?
+  total_debit        Decimal                          @default(0) @db.Decimal(14, 4)
+  total_credit       Decimal                          @default(0) @db.Decimal(14, 4)
+  posted_at          DateTime?                        @db.Timestamptz(6)
+  metadata           Json?
+  created_at         DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                         @default(now()) @db.Timestamptz(6)
+  companies          companies                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  fiscal_periods     accounting_fiscal_periods?       @relation(fields: [fiscal_period_id], references: [id], onDelete: SetNull)
+  cost_centers       accounting_cost_centers?         @relation(fields: [cost_center_id], references: [id], onDelete: SetNull)
+  lines              accounting_journal_entry_lines[]
+
+  @@unique([company_id, entry_number], map: "accounting_journal_entries_company_entry_number_key")
+  @@index([company_id], map: "accounting_journal_entries_company_id_idx")
+  @@index([entry_date], map: "accounting_journal_entries_entry_date_idx")
+  @@index([status], map: "accounting_journal_entries_status_idx")
+  @@index([source_module, source_id], map: "accounting_journal_entries_source_idx")
+  @@index([fiscal_period_id], map: "accounting_journal_entries_fiscal_period_id_idx")
+}
+
+model accounting_journal_entry_lines {
+  id                 String                          @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id         String
+  journal_entry_id   String
+  account_id         String
+  cost_center_id     String?
+  line_number        Int
+  description        String?
+  debit_amount       Decimal                         @default(0) @db.Decimal(14, 4)
+  credit_amount      Decimal                         @default(0) @db.Decimal(14, 4)
+  reference_type     String?
+  reference_id       String?
+  metadata           Json?
+  created_at         DateTime                        @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                        @default(now()) @db.Timestamptz(6)
+  companies          companies                       @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  journal_entries    accounting_journal_entries      @relation(fields: [journal_entry_id], references: [id], onDelete: Cascade)
+  chart_accounts     accounting_chart_accounts       @relation(fields: [account_id], references: [id], onDelete: Restrict)
+  cost_centers       accounting_cost_centers?        @relation(fields: [cost_center_id], references: [id], onDelete: SetNull)
+
+  @@unique([journal_entry_id, line_number], map: "accounting_journal_entry_lines_entry_line_number_key")
+  @@index([company_id], map: "accounting_journal_entry_lines_company_id_idx")
+  @@index([journal_entry_id], map: "accounting_journal_entry_lines_journal_entry_id_idx")
+  @@index([account_id], map: "accounting_journal_entry_lines_account_id_idx")
+  @@index([cost_center_id], map: "accounting_journal_entry_lines_cost_center_id_idx")
+}
+
+model accounting_accounts_receivable {
+  id                  String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  fiscal_period_id    String?
+  account_id          String?
+  fiscal_document_id  String?
+  document_number     String?
+  client_name         String?
+  issue_date          DateTime?                     @db.Timestamptz(6)
+  due_date            DateTime?                     @db.Timestamptz(6)
+  amount_original     Decimal                       @default(0) @db.Decimal(14, 4)
+  amount_paid         Decimal                       @default(0) @db.Decimal(14, 4)
+  amount_outstanding  Decimal                       @default(0) @db.Decimal(14, 4)
+  status              String?                       @default("OPEN")
+  source_module       String?
+  source_id           String?
+  paid_at             DateTime?                     @db.Timestamptz(6)
+  notes               String?
+  metadata            Json?
+  created_at          DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                      @default(now()) @db.Timestamptz(6)
+  companies           companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  fiscal_periods      accounting_fiscal_periods?    @relation(fields: [fiscal_period_id], references: [id], onDelete: SetNull)
+  chart_accounts      accounting_chart_accounts?    @relation(fields: [account_id], references: [id], onDelete: SetNull)
+  fiscal_documents    sales_fiscal_documents?       @relation(fields: [fiscal_document_id], references: [id], onDelete: SetNull)
+
+  @@index([company_id], map: "accounting_accounts_receivable_company_id_idx")
+  @@index([fiscal_period_id], map: "accounting_accounts_receivable_fiscal_period_id_idx")
+  @@index([fiscal_document_id], map: "accounting_accounts_receivable_fiscal_document_id_idx")
+  @@index([due_date], map: "accounting_accounts_receivable_due_date_idx")
+  @@index([status], map: "accounting_accounts_receivable_status_idx")
+}
+
+model accounting_accounts_payable {
+  id                  String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  fiscal_period_id    String?
+  account_id          String?
+  document_number     String?
+  supplier_name       String?
+  issue_date          DateTime?                     @db.Timestamptz(6)
+  due_date            DateTime?                     @db.Timestamptz(6)
+  amount_original     Decimal                       @default(0) @db.Decimal(14, 4)
+  amount_paid         Decimal                       @default(0) @db.Decimal(14, 4)
+  amount_outstanding  Decimal                       @default(0) @db.Decimal(14, 4)
+  status              String?                       @default("OPEN")
+  source_module       String?
+  source_id           String?
+  paid_at             DateTime?                     @db.Timestamptz(6)
+  notes               String?
+  metadata            Json?
+  created_at          DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                      @default(now()) @db.Timestamptz(6)
+  companies           companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  fiscal_periods      accounting_fiscal_periods?    @relation(fields: [fiscal_period_id], references: [id], onDelete: SetNull)
+  chart_accounts      accounting_chart_accounts?    @relation(fields: [account_id], references: [id], onDelete: SetNull)
+
+  @@index([company_id], map: "accounting_accounts_payable_company_id_idx")
+  @@index([fiscal_period_id], map: "accounting_accounts_payable_fiscal_period_id_idx")
+  @@index([due_date], map: "accounting_accounts_payable_due_date_idx")
+  @@index([status], map: "accounting_accounts_payable_status_idx")
+}
+
+model fiscal_tax_apportionments {
+  id                 String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id         String
+  fiscal_period_id   String
+  tax_type           String
+  tax_regime         String?
+  tax_base           Decimal?                      @db.Decimal(14, 4)
+  tax_rate           Decimal?                      @db.Decimal(10, 4)
+  debits_amount      Decimal?                      @db.Decimal(14, 4)
+  credits_amount     Decimal?                      @db.Decimal(14, 4)
+  amount_due         Decimal?                      @db.Decimal(14, 4)
+  due_date           DateTime?                     @db.Timestamptz(6)
+  status             String?                       @default("PENDING")
+  notes              String?
+  metadata           Json?
+  created_at         DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                      @default(now()) @db.Timestamptz(6)
+  companies          companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  fiscal_periods     accounting_fiscal_periods     @relation(fields: [fiscal_period_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "fiscal_tax_apportionments_company_id_idx")
+  @@index([fiscal_period_id], map: "fiscal_tax_apportionments_fiscal_period_id_idx")
+  @@index([tax_type], map: "fiscal_tax_apportionments_tax_type_idx")
+  @@index([status], map: "fiscal_tax_apportionments_status_idx")
+  @@index([due_date], map: "fiscal_tax_apportionments_due_date_idx")
 }
 
 model suppliers {
