@@ -8,8 +8,6 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
-const MASTER_UID = 'HOR0BYhNFjSyJmrPKWySk8vdz6y2';
-
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -36,7 +34,7 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (user && (user.role === 'MASTER' || user.uid === MASTER_UID)) {
+    if (user && user.role === 'MASTER') {
       return true;
     }
 
