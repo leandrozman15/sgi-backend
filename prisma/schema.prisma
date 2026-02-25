@@ -501,6 +501,7 @@ model products {
   aliquota_ibs_uf              Decimal?            @db.Decimal(10, 4)
   aliquota_ibs_mun             Decimal?            @db.Decimal(10, 4)
   aliquota_cbs                 Decimal?            @db.Decimal(10, 4)
+  base_calculo_ibs_cbs         Decimal?            @db.Decimal(14, 4)
   image_urls                   Json?
   variants                     Json?
   raw_materials                Json?
@@ -562,9 +563,11 @@ model raw_materials {
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime
   deletedAt                  DateTime?
+  inventory_lots             inventory_lots[]
 
   @@index([companyId, deletedAt], map: "RawMaterial_companyId_deletedAt_idx")
   @@index([companyId], map: "RawMaterial_companyId_idx")
+  @@index([companyId, code], map: "RawMaterial_company_code_idx")
 }
 
 model sales {
@@ -1060,6 +1063,7 @@ model inventory_lots {
   created_at       DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at       DateTime                   @default(now()) @db.Timestamptz(6)
   companies        companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  raw_materials    raw_materials?              @relation(fields: [raw_material_id], references: [id], onDelete: SetNull)
   lot_balances     inventory_stock_balances[]
   lot_movements    inventory_lot_movements[]
   reservations     inventory_reservations[]
@@ -1067,6 +1071,7 @@ model inventory_lots {
   @@unique([company_id, lot_code], map: "inventory_lots_company_lot_code_key")
   @@index([company_id], map: "inventory_lots_company_id_idx")
   @@index([item_type], map: "inventory_lots_item_type_idx")
+  @@index([raw_material_id], map: "inventory_lots_raw_material_id_idx")
   @@index([quality_status], map: "inventory_lots_quality_status_idx")
   @@index([expiration_date], map: "inventory_lots_expiration_date_idx")
 }
