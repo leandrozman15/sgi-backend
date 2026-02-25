@@ -131,6 +131,133 @@ export class WorkAccidentController {
     return this.service.deleteByType('epi', id, companyId);
   }
 
+  // --- Benefícios corporativos ---
+
+  @Get('benefits')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async listBenefits(
+    @Tenant() companyId: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.listBenefits(companyId, {
+      status,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @Get('benefits/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async getBenefit(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.getBenefit(id, companyId);
+  }
+
+  @Post('benefits')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async createBenefit(@Body() body: any, @Tenant() companyId: string) {
+    return this.service.createBenefit(body, companyId);
+  }
+
+  @Patch('benefits/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async updateBenefit(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.updateBenefit(id, body, companyId);
+  }
+
+  @Delete('benefits/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async deleteBenefit(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.deleteBenefit(id, companyId);
+  }
+
+  // --- Serviços, workspace e comunicações ---
+
+  @Get('benefit-services')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async listBenefitServices(
+    @Tenant() companyId: string,
+    @Query('kind') kind?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.listBenefitServices(companyId, {
+      kind,
+      status,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @Get('benefit-services/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async getBenefitService(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.getBenefitService(id, companyId);
+  }
+
+  @Post('benefit-services')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async createBenefitService(@Body() body: any, @Tenant() companyId: string) {
+    return this.service.createBenefitService(body, companyId);
+  }
+
+  @Patch('benefit-services/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async updateBenefitService(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.updateBenefitService(id, body, companyId);
+  }
+
+  @Delete('benefit-services/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async deleteBenefitService(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.deleteBenefitService(id, companyId);
+  }
+
+  // --- Controles de benefícios ---
+
+  @Get('benefit-controls')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async listBenefitControls(
+    @Tenant() companyId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.listBenefitControls(companyId, limit ? Number(limit) : undefined);
+  }
+
+  @Get('benefit-controls/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async getBenefitControl(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.getBenefitControl(id, companyId);
+  }
+
+  @Post('benefit-controls')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async createBenefitControl(@Body() body: any, @Tenant() companyId: string) {
+    return this.service.createBenefitControl(body, companyId);
+  }
+
+  @Patch('benefit-controls/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async updateBenefitControl(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.updateBenefitControl(id, body, companyId);
+  }
+
+  @Delete('benefit-controls/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async deleteBenefitControl(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.deleteBenefitControl(id, companyId);
+  }
+
   @Get()
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findAll(@Tenant() companyId: string) {
