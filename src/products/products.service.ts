@@ -67,8 +67,50 @@ export class ProductService {
     };
   }
 
-  private toClientProduct(entity: any) {
+  private normalizeVariantRows(variants: any[] | undefined, baseName: string, productId: string, companyId: string) {
+    if (!Array.isArray(variants)) return [] as any[];
+    return variants
+      .filter((v) => v)
+      .map((v) => {
+        const name = v.name || v.value || `${baseName} - ${v.sku || v.code || 'Variante'}`;
+        const code = v.code ?? v.sku ?? null;
+        const price = this.toNumberOrNull(v.price ?? v.preco ?? v.valor ?? v.valorUnitario ?? v.unitPrice);
+        return {
+          id: v.id ?? randomUUID(),
+          product_id: productId,
+          company_id: companyId,
+          name,
+          sku: v.sku ?? null,
+          code,
+          price,
+          data: v,
+          updated_at: new Date(),
+        };
+      });
+  }
+
+  private async syncVariants(productId: string, companyId: string, baseName: string, variants: any[] | undefined) {
+    if (!productId || !companyId) return;
+    const rows = this.normalizeVariantRows(variants, baseName, productId, companyId);
+    await this.prisma.$transaction([
+      this.prisma.product_variants.deleteMany({ where: { product_id: productId } }),
+      rows.length
+        ? this.prisma.product_variants.createMany({ data: rows })
+        : this.prisma.$executeRaw`SELECT 1`,
+    ]);
+  }
+
+  private toClientProduct(entity: any, variantsFromDb?: any[]) {
     const extra = entity?.data && typeof entity.data === 'object' ? entity.data : {};
+    const normalizedVariants = Array.isArray(variantsFromDb)
+      ? variantsFromDb.map((v) => ({
+          ...v,
+          name: v.name,
+          sku: v.sku,
+          code: v.code,
+          price: v.price,
+        }))
+      : entity.variants ?? extra.variants ?? [];
 
     return {
       ...entity,
@@ -110,6 +152,7 @@ export class ProductService {
       rawMaterials: entity.raw_materials ?? extra.rawMaterials ?? [],
       stages: entity.stages ?? extra.stages ?? [],
       technicalSpecs: entity.technical_specs ?? extra.technicalSpecs ?? [],
+      variants: normalizedVariants,
     };
   }
 
@@ -123,7 +166,17 @@ export class ProductService {
       orderBy: { created_at: 'desc' },
     });
 
-    return rows.map((row) => this.toClientProduct(row));
+    const ids = rows.map((r) => r.id);
+    const variants = ids.length
+      ? await this.prisma.product_variants.findMany({ where: { product_id: { in: ids } } })
+      : [];
+    const variantsByProduct = variants.reduce<Record<string, any[]>>((acc, v) => {
+      acc[v.product_id] = acc[v.product_id] || [];
+      acc[v.product_id].push(v);
+      return acc;
+    }, {});
+
+    return rows.map((row) => this.toClientProduct(row, variantsByProduct[row.id]));
   }
 
   async findById(id: string, companyId: string) {
@@ -138,7 +191,11 @@ export class ProductService {
       },
     });
 
-    return row ? this.toClientProduct(row) : null;
+    if (!row) return null;
+
+    const variants = await this.prisma.product_variants.findMany({ where: { product_id: row.id } });
+
+    return this.toClientProduct(row, variants);
   }
 
   async createItem(data: any, companyId: string) {
@@ -204,7 +261,10 @@ export class ProductService {
       },
     });
 
-    return this.toClientProduct(created);
+    await this.syncVariants(created.id, companyId, name, data?.variants);
+    const variantRows = this.normalizeVariantRows(data?.variants, name, created.id, companyId);
+
+    return this.toClientProduct(created, variantRows);
   }
 
   async updateItem(id: string, data: any, companyId: string) {
@@ -283,7 +343,11 @@ export class ProductService {
       },
     });
 
-    return this.toClientProduct(updated);
+      const baseName = updated.name;
+      await this.syncVariants(id, companyId, baseName, data?.variants ?? existing.variants ?? []);
+      const variants = await this.prisma.product_variants.findMany({ where: { product_id: id } });
+
+      return this.toClientProduct(updated, variants);
   }
 
   async deleteItem(id: string, companyId: string) {
