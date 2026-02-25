@@ -148,7 +148,6 @@ export class ProductService {
       aliquotaCBS: entity.aliquota_cbs ?? extra.aliquotaCBS ?? null,
       baseCalculoIBSCBS: entity.base_calculo_ibs_cbs ?? extra.baseCalculoIBSCBS ?? null,
       imageUrls: entity.image_urls ?? extra.imageUrls ?? [],
-      variants: entity.variants ?? extra.variants ?? [],
       rawMaterials: entity.raw_materials ?? extra.rawMaterials ?? [],
       stages: entity.stages ?? extra.stages ?? [],
       technicalSpecs: entity.technical_specs ?? extra.technicalSpecs ?? [],
