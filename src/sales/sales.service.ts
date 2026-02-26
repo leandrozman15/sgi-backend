@@ -1,13 +1,62 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
 @Injectable()
 export class SaleService {
-  private prisma: PrismaService;
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
-  constructor(prisma: PrismaService) {
-    this.prisma = prisma;
+  private getBrasilNfeToken(): string {
+    const token =
+      this.configService.get<string>('BRASIL_NFE_API_KEY') ??
+      this.configService.get<string>('BRASIL_NFE_TOKEN');
+
+    if (!token) {
+      throw new InternalServerErrorException('Token da Brasil NF-e não configurado. Defina BRASIL_NFE_API_KEY.');
+    }
+
+    return token;
+  }
+
+  private async resolveBrasilNfeToken(companyId: string): Promise<string> {
+    if (companyId) {
+      const credentials = await this.prisma.companies.findFirst({
+        where: { id: companyId },
+        select: {
+          brasil_nfe_company_token: true,
+          brasil_nfe_personal_token: true,
+        },
+      });
+
+      const tenantToken = credentials?.brasil_nfe_company_token?.trim() || credentials?.brasil_nfe_personal_token?.trim();
+      if (tenantToken) {
+        return tenantToken;
+      }
+    }
+
+    return this.getBrasilNfeToken();
+  }
+
+  private getBrasilNfeBaseUrl(): string {
+    return (
+      this.configService.get<string>('BRASIL_NFE_API_URL') ??
+      'https://api.brasilnfe.com.br/services/fiscal'
+    );
+  }
+
+  private buildBrasilNfeUrl(path: string): string {
+    const base = this.getBrasilNfeBaseUrl().replace(/\/$/, '');
+    const suffix = path.startsWith('/') ? path : `/${path}`;
+    return `${base}${suffix}`;
+  }
+
+  private asProtocolNumber(payload: any): string | undefined {
+    const value = payload?.Protocolo ?? payload?.ProtocoloAutorizacao ?? payload?.ProtocoloCancelamento;
+    return value ? String(value) : undefined;
   }
 
   private normalizeData(input: any): Record<string, any> {
@@ -225,6 +274,325 @@ export class SaleService {
         data: payload?.data && typeof payload.data === 'object' ? payload.data : undefined,
       },
     });
+  }
+
+  async emitNfe(saleId: string, companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const sale = await this.findById(saleId, companyId);
+    if (!sale) {
+      throw new NotFoundException('Venda não encontrada');
+    }
+
+    const url = this.buildBrasilNfeUrl('/EnviarNotaFiscal');
+    const token = await this.resolveBrasilNfeToken(companyId);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+      const success = response.ok && (responseData?.ReturnNF?.Ok === true || responseData?.Return?.Ok === true);
+
+      if (!success) {
+        const message = responseData?.ReturnNF?.DsStatusRespostaSefaz || responseData?.Error || 'Erro na SEFAZ';
+        await this.updateItem(saleId, { nfeStatus: 'ERRO', nfeErro: message }, companyId);
+
+        const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
+          documentType: 'NFE',
+          status: 'ERRO',
+          sefazStatusMessage: message,
+          data: { request: payload, response: responseData },
+        });
+
+        await this.createFiscalEvent(saleId, companyId, {
+          fiscalDocumentId: fiscalDoc?.id,
+          eventType: 'EMISSAO',
+          eventStatus: 'ERRO',
+          eventDate: new Date().toISOString(),
+          reason: message,
+          data: { response: responseData },
+        });
+
+        return { success: false, message, data: responseData };
+      }
+
+      const nfe = responseData?.ReturnNF ?? responseData?.Return;
+      const protocol = this.asProtocolNumber(responseData?.ReturnNF ?? responseData);
+
+      await this.updateItem(saleId, {
+        nfeStatus: 'EMITIDA',
+        numeroNFe: nfe?.Numero,
+        chaveAcesso: nfe?.ChaveNF,
+        pdfNFe: responseData?.Base64File,
+        xmlNFe: responseData?.Base64Xml,
+        statusSefaz: nfe?.DsStatusRespostaSefaz,
+        dataEmissaoNFe: new Date().toISOString(),
+      }, companyId);
+
+      const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
+        documentType: 'NFE',
+        documentNumber: nfe?.Numero,
+        series: nfe?.Serie,
+        accessKey: nfe?.ChaveNF,
+        status: 'EMITIDA',
+        issueDate: new Date().toISOString(),
+        authorizationDate: new Date().toISOString(),
+        sefazStatusCode: nfe?.CStat,
+        sefazStatusMessage: nfe?.DsStatusRespostaSefaz,
+        protocolNumber: protocol,
+        data: { request: payload, response: responseData },
+      });
+
+      await this.createFiscalEvent(saleId, companyId, {
+        fiscalDocumentId: fiscalDoc?.id,
+        eventType: 'EMISSAO',
+        eventStatus: 'SUCESSO',
+        eventDate: new Date().toISOString(),
+        protocolNumber: protocol,
+        reason: nfe?.DsStatusRespostaSefaz,
+        data: { response: responseData },
+      });
+
+      return {
+        success: true,
+        data: responseData,
+        message: `NF-e ${nfe?.Numero ?? ''} emitida com sucesso!`.trim(),
+      };
+    } catch (error: any) {
+      const message = error?.message || 'Erro interno na emissão da NF-e.';
+      await this.updateItem(saleId, { nfeStatus: 'ERRO', nfeErro: message }, companyId);
+
+      await this.upsertFiscalDocument(saleId, companyId, {
+        documentType: 'NFE',
+        status: 'ERRO',
+        sefazStatusMessage: message,
+        data: { request: payload },
+      });
+
+      return { success: false, message };
+    }
+  }
+
+  async cancelNfe(saleId: string, companyId: string, justificativa: string) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    if (!justificativa || justificativa.length < 15) {
+      throw new BadRequestException('A justificativa deve conter pelo menos 15 caracteres.');
+    }
+
+    const sale = await this.findById(saleId, companyId);
+    if (!sale) {
+      throw new NotFoundException('Venda não encontrada');
+    }
+
+    if (!sale.chaveAcesso) {
+      throw new BadRequestException('Chave de acesso da NF-e não encontrada na venda.');
+    }
+
+    const url = this.buildBrasilNfeUrl('/CancelNF');
+    const token = await this.resolveBrasilNfeToken(companyId);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify({
+          ChaveNF: sale.chaveAcesso,
+          Justificativa: justificativa,
+          NumeroSequencial: 1,
+        }),
+      });
+
+      const responseData = await response.json();
+      const success = response.ok && responseData?.Status === 1;
+
+      if (!success) {
+        const message = responseData?.Error || responseData?.DsMotivo || 'Erro no cancelamento.';
+
+        await this.upsertFiscalDocument(saleId, companyId, {
+          documentType: 'NFE',
+          accessKey: sale.chaveAcesso,
+          status: 'ERRO_CANCELAMENTO',
+          sefazStatusMessage: message,
+          data: { justificativa, response: responseData },
+        });
+
+        await this.createFiscalEvent(saleId, companyId, {
+          eventType: 'CANCELAMENTO',
+          eventStatus: 'ERRO',
+          eventDate: new Date().toISOString(),
+          reason: message,
+          data: { justificativa, response: responseData },
+        });
+
+        return { success: false, message, data: responseData };
+      }
+
+      const protocol = this.asProtocolNumber(responseData);
+
+      await this.updateItem(saleId, { nfeStatus: 'CANCELADA' }, companyId);
+
+      const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
+        documentType: 'NFE',
+        accessKey: sale.chaveAcesso,
+        status: 'CANCELADA',
+        cancellationDate: new Date().toISOString(),
+        sefazStatusCode: responseData?.Status,
+        sefazStatusMessage: responseData?.DsMotivo,
+        protocolNumber: protocol,
+        data: { response: responseData },
+      });
+
+      await this.createFiscalEvent(saleId, companyId, {
+        fiscalDocumentId: fiscalDoc?.id,
+        eventType: 'CANCELAMENTO',
+        eventStatus: 'SUCESSO',
+        eventDate: new Date().toISOString(),
+        protocolNumber: protocol,
+        reason: justificativa,
+        data: { response: responseData },
+      });
+
+      return {
+        success: true,
+        message: responseData?.DsMotivo || 'Cancelamento processado.',
+        data: responseData,
+      };
+    } catch (error: any) {
+      const message = error?.message || 'Erro interno no cancelamento da NF-e.';
+
+      await this.upsertFiscalDocument(saleId, companyId, {
+        documentType: 'NFE',
+        accessKey: sale?.chaveAcesso,
+        status: 'ERRO_CANCELAMENTO',
+        sefazStatusMessage: message,
+        data: { justificativa },
+      });
+
+      await this.createFiscalEvent(saleId, companyId, {
+        eventType: 'CANCELAMENTO',
+        eventStatus: 'ERRO',
+        eventDate: new Date().toISOString(),
+        reason: message,
+        data: { justificativa },
+      });
+
+      return { success: false, message };
+    }
+  }
+
+  async emitNfeComplementar(saleId: string, companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const sale = await this.findById(saleId, companyId);
+    if (!sale) {
+      throw new NotFoundException('Venda não encontrada');
+    }
+
+    const url = this.buildBrasilNfeUrl('/EnviarNotaFiscalComplementar');
+    const token = await this.resolveBrasilNfeToken(companyId);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+      const success = response.ok && responseData?.ReturnNF?.Ok;
+
+      if (!success) {
+        const message = responseData?.error?.message || 'Erro na NF-e complementar.';
+
+        await this.upsertFiscalDocument(saleId, companyId, {
+          documentType: 'NFE_COMPLEMENTAR',
+          status: 'ERRO',
+          sefazStatusMessage: message,
+          data: { request: payload, response: responseData },
+        });
+
+        await this.createFiscalEvent(saleId, companyId, {
+          eventType: 'EMISSAO_COMPLEMENTAR',
+          eventStatus: 'ERRO',
+          eventDate: new Date().toISOString(),
+          reason: message,
+          data: { response: responseData },
+        });
+
+        return { success: false, message, data: responseData };
+      }
+
+      const nfe = responseData?.ReturnNF;
+      const protocol = this.asProtocolNumber(nfe);
+
+      const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
+        documentType: 'NFE_COMPLEMENTAR',
+        documentNumber: nfe?.Numero,
+        series: nfe?.Serie,
+        accessKey: nfe?.ChaveNF,
+        status: 'EMITIDA',
+        issueDate: new Date().toISOString(),
+        authorizationDate: new Date().toISOString(),
+        sefazStatusCode: nfe?.CStat,
+        sefazStatusMessage: nfe?.DsStatusRespostaSefaz,
+        protocolNumber: protocol,
+        data: { request: payload, response: responseData },
+      });
+
+      await this.createFiscalEvent(saleId, companyId, {
+        fiscalDocumentId: fiscalDoc?.id,
+        eventType: 'EMISSAO_COMPLEMENTAR',
+        eventStatus: 'SUCESSO',
+        eventDate: new Date().toISOString(),
+        protocolNumber: protocol,
+        reason: nfe?.DsStatusRespostaSefaz,
+        data: { response: responseData },
+      });
+
+      return {
+        success: true,
+        message: nfe?.DsStatusRespostaSefaz,
+        data: { respostaApi: responseData },
+      };
+    } catch (error: any) {
+      const message = error?.message || 'Erro interno na NF-e complementar.';
+
+      await this.upsertFiscalDocument(saleId, companyId, {
+        documentType: 'NFE_COMPLEMENTAR',
+        status: 'ERRO',
+        sefazStatusMessage: message,
+        data: { request: payload },
+      });
+
+      await this.createFiscalEvent(saleId, companyId, {
+        eventType: 'EMISSAO_COMPLEMENTAR',
+        eventStatus: 'ERRO',
+        eventDate: new Date().toISOString(),
+        reason: message,
+      });
+
+      return { success: false, message };
+    }
   }
 
   async createItem(data: any, companyId: string) {

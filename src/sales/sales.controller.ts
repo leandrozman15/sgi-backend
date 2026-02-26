@@ -49,6 +49,36 @@ export class SaleController {
     return this.service.createFiscalEvent(id, companyId, payload);
   }
 
+  @Post(':id/nfe/emit')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async emitNfe(
+    @Param('id') id: string,
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.emitNfe(id, companyId, payload);
+  }
+
+  @Post(':id/nfe/cancel')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async cancelNfe(
+    @Param('id') id: string,
+    @Body('justificativa') justificativa: string,
+    @Tenant() companyId: string
+  ) {
+    return this.service.cancelNfe(id, companyId, justificativa);
+  }
+
+  @Post(':id/nfe/complement')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async emitNfeComplement(
+    @Param('id') id: string,
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.emitNfeComplementar(id, companyId, payload);
+  }
+
   @Get(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {

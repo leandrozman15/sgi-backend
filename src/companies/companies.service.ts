@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { getAuth } from 'firebase-admin/auth';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { UpdateNfeCredentialsDto } from './dto/update-nfe-credentials.dto';
 
 type AdminBootstrapPayload = {
   name: string;
@@ -550,5 +551,102 @@ export class CompanyService {
     });
 
     return { id };
+  }
+
+  private maskToken(value?: string | null): string | null {
+    if (!value) {
+      return null;
+    }
+
+    if (value.length <= 8) {
+      const first = value.slice(0, 2);
+      const last = value.slice(-2);
+      return `${first}••••${last}`;
+    }
+
+    return `${value.slice(0, 4)}••••${value.slice(-4)}`;
+  }
+
+  private formatNfeCredentials(record: {
+    brasil_nfe_personal_token?: string | null;
+    brasil_nfe_company_token?: string | null;
+    brasil_nfe_credentials_updated_at?: Date | null;
+  } | null) {
+    return {
+      hasPersonalToken: Boolean(record?.brasil_nfe_personal_token),
+      hasCompanyToken: Boolean(record?.brasil_nfe_company_token),
+      personalTokenPreview: this.maskToken(record?.brasil_nfe_personal_token ?? null),
+      companyTokenPreview: this.maskToken(record?.brasil_nfe_company_token ?? null),
+      updatedAt: record?.brasil_nfe_credentials_updated_at ?? null,
+    };
+  }
+
+  async getBrasilNfeCredentials(companyId: string) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const company = await this.prisma.companies.findFirst({
+      where: { id: companyId },
+      select: {
+        brasil_nfe_personal_token: true,
+        brasil_nfe_company_token: true,
+        brasil_nfe_credentials_updated_at: true,
+      },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    return this.formatNfeCredentials(company);
+  }
+
+  async updateBrasilNfeCredentials(companyId: string, payload: UpdateNfeCredentialsDto) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const company = await this.prisma.companies.findFirst({
+      where: { id: companyId },
+      select: { id: true },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const data: Record<string, any> = {};
+    let hasChanges = false;
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'personalToken')) {
+      const normalized = payload.personalToken?.trim();
+      data.brasil_nfe_personal_token = normalized || null;
+      hasChanges = true;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'companyToken')) {
+      const normalized = payload.companyToken?.trim();
+      data.brasil_nfe_company_token = normalized || null;
+      hasChanges = true;
+    }
+
+    if (hasChanges) {
+      data.brasil_nfe_credentials_updated_at = new Date();
+
+      const updated = await this.prisma.companies.update({
+        where: { id: companyId },
+        data,
+        select: {
+          brasil_nfe_personal_token: true,
+          brasil_nfe_company_token: true,
+          brasil_nfe_credentials_updated_at: true,
+        },
+      });
+
+      return this.formatNfeCredentials(updated);
+    }
+
+    return this.getBrasilNfeCredentials(companyId);
   }
 }

@@ -57,6 +57,9 @@ model companies {
   active                       Boolean?                       @default(true)
   created_at                   DateTime?                      @default(now()) @db.Timestamp(6)
   updated_at                   DateTime?                      @default(now()) @db.Timestamp(6)
+  brasil_nfe_personal_token    String?
+  brasil_nfe_company_token     String?
+  brasil_nfe_credentials_updated_at DateTime?                @db.Timestamptz(6)
   calibrations                 calibrations[]
   quality_complaints           quality_complaints[]
   quality_inspections          quality_inspections[]

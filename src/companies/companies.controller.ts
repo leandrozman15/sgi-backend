@@ -5,6 +5,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../types/roles';
 import { Tenant } from '../common/decorators/tenant.decorator';
+import { UpdateNfeCredentialsDto } from './dto/update-nfe-credentials.dto';
 
 @Controller('companies')
 @UseGuards(AuthGuard, RolesGuard)
@@ -61,6 +62,21 @@ export class CompanyController {
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findAll(@Tenant() companyId: string) {
     return this.service.findByCompany(companyId);
+  }
+
+  @Get('integrations/nfe/credentials')
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async getBrasilNfeCredentials(@Tenant() companyId: string) {
+    return this.service.getBrasilNfeCredentials(companyId);
+  }
+
+  @Put('integrations/nfe/credentials')
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async updateBrasilNfeCredentials(
+    @Body() payload: UpdateNfeCredentialsDto,
+    @Tenant() companyId: string
+  ) {
+    return this.service.updateBrasilNfeCredentials(companyId, payload || {});
   }
 
   @Get(':id')
