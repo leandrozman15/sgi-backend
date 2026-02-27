@@ -299,18 +299,38 @@ export class SaleService {
         body: JSON.stringify(payload),
       });
 
-      const responseData = await response.json();
-      const success = response.ok && (responseData?.ReturnNF?.Ok === true || responseData?.Return?.Ok === true);
+      const rawResponse = await response.text();
+      let responseData: any = null;
+      try {
+        responseData = rawResponse ? JSON.parse(rawResponse) : null;
+      } catch {
+        responseData = { raw: rawResponse };
+      }
+
+      const nfe = responseData?.ReturnNF ?? responseData?.Return;
+      const sefazCode = nfe?.CStat !== undefined && nfe?.CStat !== null ? String(nfe.CStat) : '';
+      const sefazMessage =
+        nfe?.DsStatusRespostaSefaz ||
+        responseData?.ReturnNF?.DsStatusRespostaSefaz ||
+        responseData?.Return?.DsStatusRespostaSefaz ||
+        responseData?.Error ||
+        responseData?.error?.message ||
+        response.statusText ||
+        'Erro na SEFAZ';
+      const okFlag = responseData?.ReturnNF?.Ok === true || responseData?.Return?.Ok === true;
+      const isAuthorized = sefazCode ? ['100', '150'].includes(sefazCode) : false;
+      const success = response.ok && (isAuthorized || (okFlag && !sefazCode));
 
       if (!success) {
-        const message = responseData?.ReturnNF?.DsStatusRespostaSefaz || responseData?.Error || 'Erro na SEFAZ';
+        const message = sefazMessage;
         await this.updateItem(saleId, { nfeStatus: 'ERRO', nfeErro: message }, companyId);
 
         const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
           documentType: 'NFE',
           status: 'ERRO',
+          sefazStatusCode: sefazCode || null,
           sefazStatusMessage: message,
-          data: { request: payload, response: responseData },
+          data: { request: payload, response: responseData, httpStatus: response.status },
         });
 
         await this.createFiscalEvent(saleId, companyId, {
@@ -319,13 +339,12 @@ export class SaleService {
           eventStatus: 'ERRO',
           eventDate: new Date().toISOString(),
           reason: message,
-          data: { response: responseData },
+          data: { response: responseData, httpStatus: response.status },
         });
 
         return { success: false, message, data: responseData };
       }
 
-      const nfe = responseData?.ReturnNF ?? responseData?.Return;
       const protocol = this.asProtocolNumber(responseData?.ReturnNF ?? responseData);
 
       await this.updateItem(saleId, {
@@ -371,11 +390,20 @@ export class SaleService {
       const message = error?.message || 'Erro interno na emissão da NF-e.';
       await this.updateItem(saleId, { nfeStatus: 'ERRO', nfeErro: message }, companyId);
 
-      await this.upsertFiscalDocument(saleId, companyId, {
+      const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
         documentType: 'NFE',
         status: 'ERRO',
         sefazStatusMessage: message,
-        data: { request: payload },
+        data: { request: payload, error: error?.stack ? String(error.stack) : undefined },
+      });
+
+      await this.createFiscalEvent(saleId, companyId, {
+        fiscalDocumentId: fiscalDoc?.id,
+        eventType: 'EMISSAO',
+        eventStatus: 'ERRO',
+        eventDate: new Date().toISOString(),
+        reason: message,
+        data: { error: error?.stack ? String(error.stack) : undefined },
       });
 
       return { success: false, message };
