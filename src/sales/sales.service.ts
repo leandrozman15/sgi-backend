@@ -59,6 +59,75 @@ export class SaleService {
     return value ? String(value) : undefined;
   }
 
+  private async parseProviderResponse(response: Response): Promise<any> {
+    const rawResponse = await response.text();
+
+    if (!rawResponse) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(rawResponse);
+    } catch {
+      return { raw: rawResponse };
+    }
+  }
+
+  private asString(value: any): string | null {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+
+    return String(value);
+  }
+
+  private asDate(value: any): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private extractNfsePayload(responseData: any): any {
+    return (
+      responseData?.Retorno ??
+      responseData?.ReturnNfse ??
+      responseData?.ReturnNFSe ??
+      responseData?.ReturnNFSe ??
+      responseData?.Return ??
+      responseData
+    );
+  }
+
+  private inferNfseStatus(returnData: any): string {
+    const code = this.asString(
+      returnData?.CodigoStatus ??
+      returnData?.Codigo ??
+      returnData?.Status ??
+      returnData?.CStat,
+    );
+
+    if (!code) {
+      return 'PROCESSANDO';
+    }
+
+    if (['100', '101', '1'].includes(code)) {
+      return 'AUTORIZADA';
+    }
+
+    if (['135', '151'].includes(code)) {
+      return 'CANCELADA';
+    }
+
+    if (['102', '103'].includes(code)) {
+      return 'PROCESSANDO';
+    }
+
+    return 'ERRO';
+  }
+
   private normalizeData(input: any): Record<string, any> {
     if (input?.data && typeof input.data === 'object') {
       return input.data;
@@ -274,6 +343,377 @@ export class SaleService {
         data: payload?.data && typeof payload.data === 'object' ? payload.data : undefined,
       },
     });
+  }
+
+  async upsertNfseDocument(companyId: string, payload: any) {
+    const now = new Date();
+    const verificationCode = this.asString(
+      payload?.verificationCode ?? payload?.codigoVerificacao ?? payload?.CodigoVerificacao,
+    );
+
+    const commonData = {
+      sale_id: this.asString(payload?.saleId),
+      lot_number: this.asString(payload?.lotNumber ?? payload?.codLote ?? payload?.CodigoLote),
+      rps_number: this.asString(payload?.rpsNumber ?? payload?.numeroRps ?? payload?.NumeroRps),
+      verification_code: verificationCode,
+      document_number: this.asString(payload?.documentNumber ?? payload?.numeroNfse ?? payload?.NumeroNfse),
+      series: this.asString(payload?.series ?? payload?.serie),
+      status: this.asString(payload?.status),
+      provider_status_code: this.asString(payload?.providerStatusCode ?? payload?.statusCode),
+      provider_message: this.asString(payload?.providerMessage ?? payload?.statusMessage),
+      issue_date: this.asDate(payload?.issueDate),
+      authorization_date: this.asDate(payload?.authorizationDate),
+      cancellation_date: this.asDate(payload?.cancellationDate),
+      protocol_number: this.asString(payload?.protocolNumber),
+      xml_url: this.asString(payload?.xmlUrl),
+      pdf_url: this.asString(payload?.pdfUrl),
+      data: payload?.data && typeof payload.data === 'object' ? payload.data : undefined,
+      updated_at: now,
+    };
+
+    if (verificationCode) {
+      return this.prisma.sales_nfse_documents.upsert({
+        where: {
+          company_id_verification_code: {
+            company_id: companyId,
+            verification_code: verificationCode,
+          },
+        },
+        create: {
+          company_id: companyId,
+          ...commonData,
+        },
+        update: {
+          ...commonData,
+        },
+      });
+    }
+
+    return this.prisma.sales_nfse_documents.create({
+      data: {
+        company_id: companyId,
+        ...commonData,
+      },
+    });
+  }
+
+  async createNfseEvent(companyId: string, payload: any) {
+    let nfseDocumentId = this.asString(payload?.nfseDocumentId);
+
+    if (!nfseDocumentId) {
+      const fallbackDoc = await this.prisma.sales_nfse_documents.findFirst({
+        where: {
+          company_id: companyId,
+          OR: [
+            { verification_code: this.asString(payload?.verificationCode) ?? undefined },
+            { lot_number: this.asString(payload?.lotNumber) ?? undefined },
+          ],
+        },
+        orderBy: {
+          updated_at: 'desc',
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      nfseDocumentId = fallbackDoc?.id ?? null;
+    }
+
+    if (!nfseDocumentId) {
+      throw new NotFoundException('Documento NFS-e não encontrado para registrar evento.');
+    }
+
+    return this.prisma.sales_nfse_events.create({
+      data: {
+        company_id: companyId,
+        nfse_document_id: nfseDocumentId,
+        event_type: this.asString(payload?.eventType) ?? 'NFSE_EVENT',
+        event_status: this.asString(payload?.eventStatus),
+        event_date: this.asDate(payload?.eventDate) ?? new Date(),
+        protocol_number: this.asString(payload?.protocolNumber),
+        reason: this.asString(payload?.reason),
+        data: payload?.data && typeof payload.data === 'object' ? payload.data : undefined,
+      },
+    });
+  }
+
+  async transmitNfse(companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const url = this.buildBrasilNfeUrl('/EnviarNotaFiscalServico');
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await this.parseProviderResponse(response);
+      const returnData = this.extractNfsePayload(responseData);
+
+      const lotNumber = this.asString(returnData?.CodigoLote ?? returnData?.codLote ?? payload?.Lote?.NumeroLote);
+      const verificationCode = this.asString(returnData?.CodigoVerificacao ?? returnData?.CodVerificacao);
+      const documentNumber = this.asString(returnData?.NumeroNfse ?? returnData?.NumeroNota ?? returnData?.Numero);
+      const rpsNumber = this.asString(returnData?.NumeroRps ?? payload?.nFSInfo?.NumeroRps ?? payload?.Rps?.Numero);
+      const statusCode = this.asString(returnData?.CodigoStatus ?? returnData?.Codigo ?? returnData?.Status ?? returnData?.CStat);
+      const providerMessage = this.asString(
+        returnData?.Mensagem ??
+        returnData?.MensagemRetorno ??
+        returnData?.DsMotivo ??
+        responseData?.Error ??
+        responseData?.error?.message ??
+        response.statusText,
+      );
+
+      const hasProviderError = Boolean(responseData?.Error || responseData?.error);
+      const success = response.ok && !hasProviderError;
+      const status = success ? this.inferNfseStatus(returnData) : 'ERRO';
+
+      const nfseDocument = await this.upsertNfseDocument(companyId, {
+        saleId: payload?.saleId,
+        lotNumber,
+        rpsNumber,
+        verificationCode,
+        documentNumber,
+        status,
+        providerStatusCode: statusCode,
+        providerMessage,
+        issueDate: success && documentNumber ? new Date().toISOString() : null,
+        authorizationDate: success && status === 'AUTORIZADA' ? new Date().toISOString() : null,
+        protocolNumber: this.asProtocolNumber(returnData),
+        data: {
+          request: payload,
+          response: responseData,
+          httpStatus: response.status,
+        },
+      });
+
+      await this.createNfseEvent(companyId, {
+        nfseDocumentId: nfseDocument.id,
+        eventType: 'TRANSMISSAO',
+        eventStatus: success ? 'SUCESSO' : 'ERRO',
+        eventDate: new Date().toISOString(),
+        protocolNumber: this.asProtocolNumber(returnData),
+        reason: providerMessage,
+        data: {
+          request: payload,
+          response: responseData,
+          httpStatus: response.status,
+        },
+      });
+
+      return {
+        success,
+        message: providerMessage,
+        data: responseData,
+        documentId: nfseDocument.id,
+      };
+    } catch (error: any) {
+      const message = error?.message || 'Erro interno no envio da NFS-e.';
+
+      const nfseDocument = await this.upsertNfseDocument(companyId, {
+        saleId: payload?.saleId,
+        lotNumber: payload?.codLote ?? payload?.Lote?.NumeroLote,
+        rpsNumber: payload?.nFSInfo?.NumeroRps ?? payload?.Rps?.Numero,
+        status: 'ERRO',
+        providerMessage: message,
+        data: {
+          request: payload,
+          error: error?.stack ? String(error.stack) : undefined,
+        },
+      });
+
+      await this.createNfseEvent(companyId, {
+        nfseDocumentId: nfseDocument.id,
+        eventType: 'TRANSMISSAO',
+        eventStatus: 'ERRO',
+        eventDate: new Date().toISOString(),
+        reason: message,
+        data: {
+          request: payload,
+          error: error?.stack ? String(error.stack) : undefined,
+        },
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  }
+
+  async getNfseStatus(companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const url = this.buildBrasilNfeUrl('/BuscarNotaFiscalServico');
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await this.parseProviderResponse(response);
+      const returnData = this.extractNfsePayload(responseData);
+
+      const lotNumber = this.asString(payload?.codLote ?? payload?.CodigoLote ?? returnData?.CodigoLote ?? returnData?.codLote);
+      const verificationCode = this.asString(returnData?.CodigoVerificacao ?? returnData?.CodVerificacao ?? payload?.CodigoVerificacao);
+      const statusCode = this.asString(returnData?.CodigoStatus ?? returnData?.Codigo ?? returnData?.Status ?? returnData?.CStat);
+      const providerMessage = this.asString(
+        returnData?.Mensagem ??
+        returnData?.MensagemRetorno ??
+        returnData?.DsMotivo ??
+        responseData?.Error ??
+        responseData?.error?.message ??
+        response.statusText,
+      );
+
+      const hasProviderError = Boolean(responseData?.Error || responseData?.error);
+      const success = response.ok && !hasProviderError;
+
+      const nfseDocument = await this.upsertNfseDocument(companyId, {
+        saleId: payload?.saleId,
+        lotNumber,
+        rpsNumber: returnData?.NumeroRps ?? payload?.NumeroRps,
+        verificationCode,
+        documentNumber: returnData?.NumeroNfse ?? returnData?.NumeroNota ?? returnData?.Numero,
+        status: success ? this.inferNfseStatus(returnData) : 'ERRO',
+        providerStatusCode: statusCode,
+        providerMessage,
+        authorizationDate: success && this.inferNfseStatus(returnData) === 'AUTORIZADA' ? new Date().toISOString() : null,
+        protocolNumber: this.asProtocolNumber(returnData),
+        data: {
+          statusRequest: payload,
+          statusResponse: responseData,
+          httpStatus: response.status,
+        },
+      });
+
+      await this.createNfseEvent(companyId, {
+        nfseDocumentId: nfseDocument.id,
+        eventType: 'CONSULTA_STATUS',
+        eventStatus: success ? 'SUCESSO' : 'ERRO',
+        eventDate: new Date().toISOString(),
+        protocolNumber: this.asProtocolNumber(returnData),
+        reason: providerMessage,
+        data: {
+          request: payload,
+          response: responseData,
+          httpStatus: response.status,
+        },
+      });
+
+      return {
+        success,
+        message: providerMessage,
+        data: responseData,
+        documentId: nfseDocument.id,
+      };
+    } catch (error: any) {
+      const message = error?.message || 'Erro interno na consulta de status da NFS-e.';
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  }
+
+  async cancelNfse(companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const url = this.buildBrasilNfeUrl('/CancelarNotaFiscal');
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await this.parseProviderResponse(response);
+      const returnData = this.extractNfsePayload(responseData);
+
+      const verificationCode = this.asString(payload?.CodigoVerificacao ?? returnData?.CodigoVerificacao ?? returnData?.CodVerificacao);
+      const statusCode = this.asString(returnData?.CodigoStatus ?? returnData?.Codigo ?? returnData?.Status ?? returnData?.CStat);
+      const providerMessage = this.asString(
+        returnData?.Mensagem ??
+        returnData?.MensagemRetorno ??
+        returnData?.DsMotivo ??
+        responseData?.Error ??
+        responseData?.error?.message ??
+        response.statusText,
+      );
+
+      const hasProviderError = Boolean(responseData?.Error || responseData?.error);
+      const success = response.ok && !hasProviderError;
+
+      const nfseDocument = await this.upsertNfseDocument(companyId, {
+        saleId: payload?.saleId,
+        lotNumber: payload?.codLote,
+        verificationCode,
+        documentNumber: payload?.NumeroNfse ?? returnData?.NumeroNfse,
+        status: success ? 'CANCELADA' : 'ERRO_CANCELAMENTO',
+        providerStatusCode: statusCode,
+        providerMessage,
+        cancellationDate: success ? new Date().toISOString() : null,
+        protocolNumber: this.asProtocolNumber(returnData),
+        data: {
+          cancelRequest: payload,
+          cancelResponse: responseData,
+          httpStatus: response.status,
+        },
+      });
+
+      await this.createNfseEvent(companyId, {
+        nfseDocumentId: nfseDocument.id,
+        eventType: 'CANCELAMENTO',
+        eventStatus: success ? 'SUCESSO' : 'ERRO',
+        eventDate: new Date().toISOString(),
+        protocolNumber: this.asProtocolNumber(returnData),
+        reason: providerMessage,
+        data: {
+          request: payload,
+          response: responseData,
+          httpStatus: response.status,
+        },
+      });
+
+      return {
+        success,
+        message: providerMessage,
+        data: responseData,
+        documentId: nfseDocument.id,
+      };
+    } catch (error: any) {
+      const message = error?.message || 'Erro interno no cancelamento da NFS-e.';
+
+      return {
+        success: false,
+        message,
+      };
+    }
   }
 
   async emitNfe(saleId: string, companyId: string, payload: any) {

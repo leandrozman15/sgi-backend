@@ -79,6 +79,33 @@ export class SaleController {
     return this.service.emitNfeComplementar(id, companyId, payload);
   }
 
+  @Post('nfse/transmit')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async transmitNfse(
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.transmitNfse(companyId, payload);
+  }
+
+  @Post('nfse/status')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async getNfseStatus(
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.getNfseStatus(companyId, payload);
+  }
+
+  @Post('nfse/cancel')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async cancelNfse(
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.cancelNfse(companyId, payload);
+  }
+
   @Get(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {

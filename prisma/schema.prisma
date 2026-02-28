@@ -104,6 +104,8 @@ model companies {
   sale_items                   sale_items[]
   sales_fiscal_documents       sales_fiscal_documents[]
   sales_fiscal_events          sales_fiscal_events[]
+  sales_nfse_documents         sales_nfse_documents[]
+  sales_nfse_events            sales_nfse_events[]
   fiscal_tax_apportionments    fiscal_tax_apportionments[]
   sale_status_history          sale_status_history[]
   subscription_history         subscription_history[]
@@ -610,6 +612,7 @@ model sales {
   updatedAt DateTime
   deletedAt DateTime?
   fiscal_documents sales_fiscal_documents[]
+  nfse_documents sales_nfse_documents[]
   items     sale_items[]
   history   sale_status_history[]
 
@@ -716,6 +719,59 @@ model sales_fiscal_events {
   @@index([fiscal_document_id], map: "sales_fiscal_events_document_id_idx")
   @@index([event_type], map: "sales_fiscal_events_event_type_idx")
   @@index([event_date], map: "sales_fiscal_events_event_date_idx")
+}
+
+model sales_nfse_documents {
+  id                   String             @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id           String
+  sale_id              String?
+  lot_number           String?
+  rps_number           String?
+  verification_code    String?
+  document_number      String?
+  series               String?
+  status               String?
+  provider_status_code String?
+  provider_message     String?
+  issue_date           DateTime?          @db.Timestamptz(6)
+  authorization_date   DateTime?          @db.Timestamptz(6)
+  cancellation_date    DateTime?          @db.Timestamptz(6)
+  protocol_number      String?
+  xml_url              String?
+  pdf_url              String?
+  data                 Json?
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime           @default(now()) @db.Timestamptz(6)
+  companies            companies          @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  sales                sales?             @relation(fields: [sale_id], references: [id], onDelete: SetNull)
+  events               sales_nfse_events[]
+
+  @@unique([company_id, verification_code], map: "sales_nfse_documents_company_verification_code_key")
+  @@index([company_id], map: "sales_nfse_documents_company_id_idx")
+  @@index([sale_id], map: "sales_nfse_documents_sale_id_idx")
+  @@index([lot_number], map: "sales_nfse_documents_lot_number_idx")
+  @@index([status], map: "sales_nfse_documents_status_idx")
+}
+
+model sales_nfse_events {
+  id               String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id       String
+  nfse_document_id String
+  event_type       String
+  event_status     String?
+  event_date       DateTime?            @db.Timestamptz(6)
+  protocol_number  String?
+  reason           String?
+  data             Json?
+  created_at       DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime             @default(now()) @db.Timestamptz(6)
+  companies        companies            @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  nfse_documents   sales_nfse_documents @relation(fields: [nfse_document_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id], map: "sales_nfse_events_company_id_idx")
+  @@index([nfse_document_id], map: "sales_nfse_events_document_id_idx")
+  @@index([event_type], map: "sales_nfse_events_event_type_idx")
+  @@index([event_date], map: "sales_nfse_events_event_date_idx")
 }
 
 model accounting_fiscal_periods {
