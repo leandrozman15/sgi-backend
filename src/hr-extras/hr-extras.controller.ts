@@ -71,6 +71,84 @@ export class WorkAccidentController {
     return this.service.deleteByType('attendance', id, companyId);
   }
 
+  @Get('overtime')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async listOvertime(@Tenant() companyId: string, @Query('limit') limit?: string) {
+    return this.service.findByType('overtime', companyId, Number(limit) || 300);
+  }
+
+  @Get('overtime/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async getOvertime(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.findByTypeAndId('overtime', id, companyId);
+  }
+
+  @Post('overtime')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async createOvertime(@Body() createDto: any, @Tenant() companyId: string) {
+    return this.service.createByType('overtime', createDto, companyId);
+  }
+
+  @Patch('overtime/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async updateOvertime(@Param('id') id: string, @Body() updateDto: any, @Tenant() companyId: string) {
+    return this.service.updateByType('overtime', id, updateDto, companyId);
+  }
+
+  @Delete('overtime/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async removeOvertime(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.deleteByType('overtime', id, companyId);
+  }
+
+  @Get('production-coverage')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async listProductionCoverage(@Tenant() companyId: string, @Query('limit') limit?: string) {
+    return this.service.findByType('coverage', companyId, Number(limit) || 300);
+  }
+
+  @Post('production-coverage')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async createProductionCoverage(@Body() createDto: any, @Tenant() companyId: string) {
+    return this.service.createByType('coverage', createDto, companyId);
+  }
+
+  @Patch('production-coverage/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async updateProductionCoverage(@Param('id') id: string, @Body() updateDto: any, @Tenant() companyId: string) {
+    return this.service.updateByType('coverage', id, updateDto, companyId);
+  }
+
+  @Delete('production-coverage/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async removeProductionCoverage(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.deleteByType('coverage', id, companyId);
+  }
+
+  @Get('training-matrix')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async listTrainingMatrix(@Tenant() companyId: string, @Query('limit') limit?: string) {
+    return this.service.findByType('training-matrix', companyId, Number(limit) || 400);
+  }
+
+  @Post('training-matrix')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async createTrainingMatrix(@Body() createDto: any, @Tenant() companyId: string) {
+    return this.service.createByType('training-matrix', createDto, companyId);
+  }
+
+  @Patch('training-matrix/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async updateTrainingMatrix(@Param('id') id: string, @Body() updateDto: any, @Tenant() companyId: string) {
+    return this.service.updateByType('training-matrix', id, updateDto, companyId);
+  }
+
+  @Delete('training-matrix/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async removeTrainingMatrix(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.deleteByType('training-matrix', id, companyId);
+  }
+
   @Get('accidents')
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async listAccidents(@Tenant() companyId: string, @Query('limit') limit?: string) {

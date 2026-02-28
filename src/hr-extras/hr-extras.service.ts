@@ -34,6 +34,9 @@ export class WorkAccidentService {
     if (type === 'vacation') return 'vacation';
     if (type === 'attendance') return 'attendance';
     if (type === 'epi') return 'epi';
+    if (type === 'overtime') return 'overtime';
+    if (type === 'coverage') return 'coverage';
+    if (type === 'training-matrix') return 'training-matrix';
     return 'accident';
   }
 
@@ -42,6 +45,9 @@ export class WorkAccidentService {
     if (normalized === 'vacation') return 'hr_vacations';
     if (normalized === 'attendance') return 'hr_attendance_records';
     if (normalized === 'epi') return 'hr_epi_deliveries';
+    if (normalized === 'overtime') return 'hr_overtime_records';
+    if (normalized === 'coverage') return 'hr_production_coverages';
+    if (normalized === 'training-matrix') return 'hr_training_matrix_entries';
     return 'hr_work_accidents';
   }
 
@@ -54,8 +60,20 @@ export class WorkAccidentService {
       startDate: data.startDate ?? row.start_date,
       endDate: data.endDate ?? row.end_date,
       date: data.date ?? row.date,
+      shift: data.shift ?? row.shift,
+      sector: data.sector ?? row.sector,
+      hours: data.hours ?? row.hours,
+      type: data.type ?? data.overtimeType ?? row.overtime_type,
+      approver: data.approver ?? row.approver,
       deliveryDate: data.deliveryDate ?? row.delivery_date,
       accidentDate: data.accidentDate ?? row.accident_date,
+      criticalRole: data.criticalRole ?? row.critical_role,
+      minRequired: data.minRequired ?? row.min_required,
+      availableCount: data.availableCount ?? row.available_count,
+      coveragePercent: data.coveragePercent ?? row.coverage_percent,
+      stage: data.stage ?? row.stage,
+      expiresAt: data.expiresAt ?? row.expires_at,
+      lastTrainingAt: data.lastTrainingAt ?? row.last_training_at,
       location: data.location ?? row.location,
       severity: data.severity ?? row.severity,
       status: data.status ?? row.status,
@@ -330,6 +348,84 @@ export class WorkAccidentService {
       return this.normalizeRow(rows[0]);
     }
 
+    if (table === 'hr_overtime_records') {
+      const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+        `
+          INSERT INTO hr_overtime_records (
+            id, company_id, employee_id, employee_name, date, shift, sector, reason, overtime_type, hours, approver, status, data, created_at, updated_at
+          ) VALUES (
+            ${id},
+            ${companyId},
+            ${payload.employeeId ?? null},
+            ${payload.employeeName ?? null},
+            ${this.toDateOrNull(payload.date)},
+            ${payload.shift ?? null},
+            ${payload.sector ?? null},
+            ${payload.reason ?? null},
+            ${payload.type ?? payload.overtimeType ?? null},
+            ${this.toDecimal(payload.hours)},
+            ${payload.approver ?? null},
+            ${payload.status ?? null},
+            ${payload},
+            NOW(),
+            NOW()
+          )
+          RETURNING *
+        `;
+      return this.normalizeRow(rows[0]);
+    }
+
+    if (table === 'hr_production_coverages') {
+      const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+        `
+          INSERT INTO hr_production_coverages (
+            id, company_id, date, shift, sector, critical_role, min_required, available_count, coverage_percent, status, notes, data, created_at, updated_at
+          ) VALUES (
+            ${id},
+            ${companyId},
+            ${this.toDateOrNull(payload.date)},
+            ${payload.shift ?? null},
+            ${payload.sector ?? null},
+            ${payload.criticalRole ?? null},
+            ${payload.minRequired ?? null},
+            ${payload.availableCount ?? null},
+            ${this.toDecimal(payload.coveragePercent)},
+            ${payload.status ?? null},
+            ${payload.notes ?? null},
+            ${payload},
+            NOW(),
+            NOW()
+          )
+          RETURNING *
+        `;
+      return this.normalizeRow(rows[0]);
+    }
+
+    if (table === 'hr_training_matrix_entries') {
+      const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+        `
+          INSERT INTO hr_training_matrix_entries (
+            id, company_id, employee_id, employee_name, sector, critical_role, stage, status, last_training_at, expires_at, data, created_at, updated_at
+          ) VALUES (
+            ${id},
+            ${companyId},
+            ${payload.employeeId ?? null},
+            ${payload.employeeName ?? null},
+            ${payload.sector ?? null},
+            ${payload.criticalRole ?? null},
+            ${payload.stage ?? null},
+            ${payload.status ?? null},
+            ${this.toDateOrNull(payload.lastTrainingAt)},
+            ${this.toDateOrNull(payload.expiresAt)},
+            ${payload},
+            NOW(),
+            NOW()
+          )
+          RETURNING *
+        `;
+      return this.normalizeRow(rows[0]);
+    }
+
     if (table === 'hr_epi_deliveries') {
       const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
         `
@@ -407,6 +503,75 @@ export class WorkAccidentService {
             date = ${this.toDateOrNull(payload.date)},
             status = ${payload.status ?? null},
             reason = ${payload.reason ?? null},
+            data = ${payload},
+            updated_at = NOW()
+          WHERE id = ${id} AND company_id = ${companyId}
+          RETURNING *
+        `;
+      if (rows.length === 0) throw new NotFoundException('Registro não encontrado');
+      return this.normalizeRow(rows[0]);
+    }
+
+    if (table === 'hr_overtime_records') {
+      const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+        `
+          UPDATE hr_overtime_records
+          SET
+            employee_id = ${payload.employeeId ?? null},
+            employee_name = ${payload.employeeName ?? null},
+            date = ${this.toDateOrNull(payload.date)},
+            shift = ${payload.shift ?? null},
+            sector = ${payload.sector ?? null},
+            reason = ${payload.reason ?? null},
+            overtime_type = ${payload.type ?? payload.overtimeType ?? null},
+            hours = ${this.toDecimal(payload.hours)},
+            approver = ${payload.approver ?? null},
+            status = ${payload.status ?? null},
+            data = ${payload},
+            updated_at = NOW()
+          WHERE id = ${id} AND company_id = ${companyId}
+          RETURNING *
+        `;
+      if (rows.length === 0) throw new NotFoundException('Registro não encontrado');
+      return this.normalizeRow(rows[0]);
+    }
+
+    if (table === 'hr_production_coverages') {
+      const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+        `
+          UPDATE hr_production_coverages
+          SET
+            date = ${this.toDateOrNull(payload.date)},
+            shift = ${payload.shift ?? null},
+            sector = ${payload.sector ?? null},
+            critical_role = ${payload.criticalRole ?? null},
+            min_required = ${payload.minRequired ?? null},
+            available_count = ${payload.availableCount ?? null},
+            coverage_percent = ${this.toDecimal(payload.coveragePercent)},
+            status = ${payload.status ?? null},
+            notes = ${payload.notes ?? null},
+            data = ${payload},
+            updated_at = NOW()
+          WHERE id = ${id} AND company_id = ${companyId}
+          RETURNING *
+        `;
+      if (rows.length === 0) throw new NotFoundException('Registro não encontrado');
+      return this.normalizeRow(rows[0]);
+    }
+
+    if (table === 'hr_training_matrix_entries') {
+      const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
+        `
+          UPDATE hr_training_matrix_entries
+          SET
+            employee_id = ${payload.employeeId ?? null},
+            employee_name = ${payload.employeeName ?? null},
+            sector = ${payload.sector ?? null},
+            critical_role = ${payload.criticalRole ?? null},
+            stage = ${payload.stage ?? null},
+            status = ${payload.status ?? null},
+            last_training_at = ${this.toDateOrNull(payload.lastTrainingAt)},
+            expires_at = ${this.toDateOrNull(payload.expiresAt)},
             data = ${payload},
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
