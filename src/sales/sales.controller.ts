@@ -106,6 +106,51 @@ export class SaleController {
     return this.service.cancelNfse(companyId, payload);
   }
 
+  @Post('sped/generate')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async generateSped(
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.generateSped(companyId, payload);
+  }
+
+  @Post('sped/unify')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async unifySped(
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.unifySped(companyId, payload);
+  }
+
+  @Post('sped/recreate/:codigo')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async recreateSped(
+    @Param('codigo') codigo: string,
+    @Tenant() companyId: string
+  ) {
+    return this.service.recreateSped(companyId, codigo);
+  }
+
+  @Post('sped/get/:codigo')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async getSped(
+    @Param('codigo') codigo: string,
+    @Tenant() companyId: string
+  ) {
+    return this.service.getSped(companyId, codigo);
+  }
+
+  @Post('sintegra/generate')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async generateSintegra(
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.generateSintegra(companyId, payload);
+  }
+
   @Get(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {

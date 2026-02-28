@@ -716,6 +716,208 @@ export class SaleService {
     }
   }
 
+  async generateSped(companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const url = this.buildBrasilNfeUrl('/GerarArquivoSped');
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await this.parseProviderResponse(response);
+      const success = response.ok && !data?.Error;
+
+      return {
+        success,
+        message: data?.Error || data?.Mensagem || response.statusText,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Erro interno ao gerar arquivo SPED.',
+      };
+    }
+  }
+
+  async unifySped(companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const url = this.buildBrasilNfeUrl('/UnificarArquivoSped');
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await this.parseProviderResponse(response);
+      const success = response.ok && !data?.Error;
+
+      return {
+        success,
+        message: data?.Error || data?.Mensagem || response.statusText,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Erro interno ao unificar arquivo SPED.',
+      };
+    }
+  }
+
+  async recreateSped(companyId: string, codigo: string) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    if (!codigo?.trim()) {
+      throw new BadRequestException('Código da solicitação SPED é obrigatório.');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const normalizedCode = encodeURIComponent(codigo.trim());
+    const pathUrl = this.buildBrasilNfeUrl(`/RecriarArquivoSped/${normalizedCode}`);
+    const fallbackUrl = this.buildBrasilNfeUrl('/RecriarArquivoSped');
+
+    try {
+      let response = await fetch(pathUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+      });
+
+      if (response.status === 404) {
+        response = await fetch(fallbackUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Token: token,
+          },
+          body: JSON.stringify({ Codigo: codigo.trim() }),
+        });
+      }
+
+      const data = await this.parseProviderResponse(response);
+      const success = response.ok && !data?.Error;
+
+      return {
+        success,
+        message: data?.Error || data?.Mensagem || response.statusText,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Erro interno ao recriar arquivo SPED.',
+      };
+    }
+  }
+
+  async getSped(companyId: string, codigo: string) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    if (!codigo?.trim()) {
+      throw new BadRequestException('Código da solicitação SPED é obrigatório.');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const normalizedCode = encodeURIComponent(codigo.trim());
+    const pathUrl = this.buildBrasilNfeUrl(`/ObterArquivoSped/${normalizedCode}`);
+    const fallbackUrl = this.buildBrasilNfeUrl('/ObterArquivoSped');
+
+    try {
+      let response = await fetch(pathUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+      });
+
+      if (response.status === 404) {
+        response = await fetch(fallbackUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Token: token,
+          },
+          body: JSON.stringify({ Codigo: codigo.trim() }),
+        });
+      }
+
+      const data = await this.parseProviderResponse(response);
+      const success = response.ok && !data?.Error;
+
+      return {
+        success,
+        message: data?.Error || data?.Mensagem || response.statusText,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Erro interno ao obter arquivo SPED.',
+      };
+    }
+  }
+
+  async generateSintegra(companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const url = this.buildBrasilNfeUrl('/GerarArquivoSintegra');
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await this.parseProviderResponse(response);
+      const success = response.ok && !data?.Error;
+
+      return {
+        success,
+        message: data?.Error || data?.Mensagem || response.statusText,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Erro interno ao gerar arquivo SINTEGRA.',
+      };
+    }
+  }
+
   async emitNfe(saleId: string, companyId: string, payload: any) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
