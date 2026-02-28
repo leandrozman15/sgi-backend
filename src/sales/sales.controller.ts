@@ -151,6 +151,15 @@ export class SaleController {
     return this.service.generateSintegra(companyId, payload);
   }
 
+  @Post('fci/generate')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async generateFci(
+    @Body() payload: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.generateFci(companyId, payload);
+  }
+
   @Get(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {

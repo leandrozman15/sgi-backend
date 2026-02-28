@@ -918,6 +918,40 @@ export class SaleService {
     }
   }
 
+  async generateFci(companyId: string, payload: any) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const url = this.buildBrasilNfeUrl('/GerarArquivoFci');
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Token: token,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await this.parseProviderResponse(response);
+      const success = response.ok && !data?.Error;
+
+      return {
+        success,
+        message: data?.Error || data?.Mensagem || response.statusText,
+        data,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Erro interno ao gerar arquivo FCI.',
+      };
+    }
+  }
+
   async emitNfe(saleId: string, companyId: string, payload: any) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
