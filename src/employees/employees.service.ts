@@ -1,12 +1,189 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import * as admin from 'firebase-admin';
+import { UserRole } from '../types/roles';
 
 @Injectable()
 export class EmployeeService {
   private prisma: PrismaService;
+  private readonly logger = new Logger(EmployeeService.name);
 
-  constructor(prisma: PrismaService) {
+  constructor(
+    prisma: PrismaService,
+    @Optional() @Inject('FIREBASE_APP') private readonly firebaseApp?: admin.app.App,
+    @Optional() @Inject('FIREBASE_AUTH') private readonly firebaseAuth?: admin.auth.Auth,
+  ) {
     this.prisma = prisma;
+  }
+
+  private getFirebaseAuth(): admin.auth.Auth | null {
+    if (this.firebaseAuth) return this.firebaseAuth;
+    if (this.firebaseApp) return this.firebaseApp.auth();
+    return null;
+  }
+
+  private normalizeEmail(value: any): string {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  private getPermissionsForRole(role: UserRole): string[] {
+    const permissionsMap: Record<UserRole, string[]> = {
+      [UserRole.MASTER]: ['*:*'],
+      [UserRole.ADMIN]: ['companies:read', 'companies:write', 'companies:delete', 'users:manage', 'users:read', 'users:write'],
+      [UserRole.GERENTE]: ['production:read', 'production:write', 'reports:read'],
+      [UserRole.SUPERVISOR]: ['production:read', 'production:write', 'quality:read'],
+      [UserRole.OPERADOR]: ['production:read', 'production:write', 'tasks:read'],
+      [UserRole.CONSULTOR]: ['reports:read', 'production:read', 'dashboards:read'],
+    };
+    return permissionsMap[role] || [];
+  }
+
+  private resolveUserRole(employee: any): UserRole {
+    const rawRole = String(employee?.role || employee?.accessLevel || employee?.department || '').trim().toLowerCase();
+
+    if (rawRole.includes('master')) return UserRole.MASTER;
+    if (rawRole.includes('admin')) return UserRole.ADMIN;
+    if (rawRole.includes('gerente') || rawRole.includes('manager')) return UserRole.GERENTE;
+    if (rawRole.includes('supervisor')) return UserRole.SUPERVISOR;
+    if (rawRole.includes('operador') || rawRole.includes('operator')) return UserRole.OPERADOR;
+    return UserRole.CONSULTOR;
+  }
+
+  private async ensureFirebaseAuthForEmployee(employee: any, payload: any, companyId: string): Promise<string | null> {
+    const hasAccess = !!employee?.hasAccess;
+    if (!hasAccess) return null;
+
+    const auth = this.getFirebaseAuth();
+    if (!auth) {
+      throw new Error('Firebase Auth não inicializado no backend.');
+    }
+
+    const email = this.normalizeEmail(employee?.email || payload?.email);
+    if (!email) {
+      throw new Error('Funcionário com acesso ao sistema precisa de email válido.');
+    }
+
+    const role = this.resolveUserRole(employee);
+    const permissions = this.getPermissionsForRole(role);
+
+    let userRecord: admin.auth.UserRecord | null = null;
+    try {
+      userRecord = await auth.getUserByEmail(email);
+    } catch (error: any) {
+      if (error?.code !== 'auth/user-not-found') {
+        throw error;
+      }
+    }
+
+    if (!userRecord) {
+      const authPassword = String(payload?.authPassword || '').trim();
+      if (!authPassword || authPassword.length < 6) {
+        throw new Error('Senha de acesso obrigatória (mínimo 6 caracteres) para criar usuário no Firebase Auth.');
+      }
+
+      userRecord = await auth.createUser({
+        email,
+        password: authPassword,
+        displayName: String(employee?.name || 'Funcionário').trim() || undefined,
+        disabled: false,
+      });
+    } else {
+      await auth.updateUser(userRecord.uid, {
+        email,
+        displayName: String(employee?.name || userRecord.displayName || '').trim() || userRecord.displayName || undefined,
+        disabled: false,
+      });
+    }
+
+    await auth.setCustomUserClaims(userRecord.uid, {
+      role,
+      companyId,
+      permissions,
+    });
+
+    return userRecord.uid;
+  }
+
+  private async disableFirebaseAuthForEmployee(employee: any): Promise<void> {
+    const auth = this.getFirebaseAuth();
+    if (!auth) {
+      throw new Error('Firebase Auth não inicializado no backend.');
+    }
+
+    const email = this.normalizeEmail(employee?.email);
+    if (!email) return;
+
+    try {
+      const userRecord = await auth.getUserByEmail(email);
+      await auth.updateUser(userRecord.uid, { disabled: true });
+    } catch (error: any) {
+      if (error?.code === 'auth/user-not-found') return;
+      throw error;
+    }
+  }
+
+  private getEmployeeDocRef(companyId: string, employeeId: string) {
+    if (!this.firebaseApp) return null;
+    return this.firebaseApp
+      .firestore()
+      .collection('companies')
+      .doc(companyId)
+      .collection('employees')
+      .doc(employeeId);
+  }
+
+  private mapEmployeeToFirestore(employee: any, companyId: string) {
+    return {
+      id: employee.id,
+      companyId,
+      name: employee.name ?? null,
+      email: employee.email ?? null,
+      document: employee.document ?? employee.cpf ?? null,
+      cpf: employee.cpf ?? employee.document ?? null,
+      role: employee.role ?? employee.position ?? null,
+      accessLevel: employee.accessLevel ?? employee.department ?? null,
+      position: employee.position ?? employee.role ?? null,
+      department: employee.department ?? employee.accessLevel ?? null,
+      status: employee.status ?? null,
+      hasAccess: employee.hasAccess ?? (employee.status === 'active'),
+      phone: employee.phone ?? null,
+      address: employee.address ?? null,
+      commission: employee.commission ?? null,
+      registrationNumber: employee.registrationNumber ?? null,
+      startDate: employee.startDate ?? null,
+      vacationDays: employee.vacationDays ?? null,
+      banco: employee.banco ?? null,
+      conta: employee.conta ?? null,
+      pix: employee.pix ?? null,
+      tamanhoCamisa: employee.tamanhoCamisa ?? null,
+      tamanhoCalca: employee.tamanhoCalca ?? null,
+      numeroBotas: employee.numeroBotas ?? null,
+      firebaseUid: employee.firebaseUid ?? null,
+      permissions: employee.permissions ?? {},
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+  }
+
+  private async syncEmployeeToFirestore(employee: any, companyId: string, isCreate = false) {
+    const ref = this.getEmployeeDocRef(companyId, employee.id);
+    if (!ref) {
+      throw new Error('Firebase não inicializado no backend (FIREBASE_APP indisponível).');
+    }
+
+    const payload = this.mapEmployeeToFirestore(employee, companyId) as any;
+    if (isCreate) {
+      payload.createdAt = admin.firestore.FieldValue.serverTimestamp();
+    }
+
+    await ref.set(payload, { merge: true });
+  }
+
+  private async removeEmployeeFromFirestore(companyId: string, employeeId: string) {
+    const ref = this.getEmployeeDocRef(companyId, employeeId);
+    if (!ref) {
+      throw new Error('Firebase não inicializado no backend (FIREBASE_APP indisponível).');
+    }
+    await ref.delete();
   }
 
   private normalizeExtraData(input: any): Record<string, any> {
@@ -55,6 +232,7 @@ export class EmployeeService {
       tamanhoCamisa: entity.tamanho_camisa ?? extra.tamanhoCamisa ?? null,
       tamanhoCalca: entity.tamanho_calca ?? extra.tamanhoCalca ?? null,
       numeroBotas: entity.numero_botas ?? extra.numeroBotas ?? null,
+      firebaseUid: extra.firebaseUid ?? null,
       permissions: entity.permissions ?? extra.permissions ?? {},
     };
   }
@@ -138,7 +316,26 @@ export class EmployeeService {
       },
     });
 
-    return this.toClientEmployee(created);
+    const createdEmployee = this.toClientEmployee(created);
+
+    try {
+      const firebaseUid = await this.ensureFirebaseAuthForEmployee(createdEmployee, data, companyId);
+      if (firebaseUid) {
+        createdEmployee.firebaseUid = firebaseUid;
+      }
+    } catch (error: any) {
+      this.logger.error(`Falha ao criar usuário Firebase Auth para funcionário ${createdEmployee.id}: ${error?.message || error}`);
+      throw new Error(error?.message || 'Funcionário criado no banco, mas falhou a criação no Firebase Auth.');
+    }
+
+    try {
+      await this.syncEmployeeToFirestore(createdEmployee, companyId, true);
+    } catch (error: any) {
+      this.logger.error(`Falha ao sincronizar funcionário ${createdEmployee.id} no Firebase: ${error?.message || error}`);
+      throw new Error('Funcionário criado no banco, mas falhou a sincronização com Firebase.');
+    }
+
+    return createdEmployee;
   }
 
   async updateItem(id: string, data: any, companyId: string) {
@@ -243,13 +440,49 @@ export class EmployeeService {
       },
     });
 
-    return this.toClientEmployee(updated);
+    const updatedEmployee = this.toClientEmployee(updated);
+
+    try {
+      if (updatedEmployee.hasAccess) {
+        const firebaseUid = await this.ensureFirebaseAuthForEmployee(updatedEmployee, data, companyId);
+        if (firebaseUid) {
+          updatedEmployee.firebaseUid = firebaseUid;
+        }
+      } else {
+        await this.disableFirebaseAuthForEmployee(updatedEmployee);
+      }
+    } catch (error: any) {
+      this.logger.error(`Falha ao sincronizar Firebase Auth para funcionário ${updatedEmployee.id}: ${error?.message || error}`);
+      throw new Error(error?.message || 'Funcionário atualizado no banco, mas falhou a sincronização no Firebase Auth.');
+    }
+
+    try {
+      await this.syncEmployeeToFirestore(updatedEmployee, companyId);
+    } catch (error: any) {
+      this.logger.error(`Falha ao atualizar funcionário ${updatedEmployee.id} no Firebase: ${error?.message || error}`);
+      throw new Error('Funcionário atualizado no banco, mas falhou a sincronização com Firebase.');
+    }
+
+    return updatedEmployee;
   }
 
   async deleteItem(id: string, companyId: string) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
+
+    const existing = await (this.prisma as any).employees.findFirst({
+      where: {
+        id,
+        company_id: companyId,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Funcionário não encontrado');
+    }
+
+    const existingEmployee = this.toClientEmployee(existing);
 
     const deleted = await this.prisma.employees.deleteMany({
       where: {
@@ -260,6 +493,22 @@ export class EmployeeService {
 
     if (deleted.count === 0) {
       throw new NotFoundException('Funcionário não encontrado');
+    }
+
+    try {
+      if (existingEmployee?.hasAccess) {
+        await this.disableFirebaseAuthForEmployee(existingEmployee);
+      }
+    } catch (error: any) {
+      this.logger.error(`Falha ao desabilitar usuário Firebase Auth do funcionário ${id}: ${error?.message || error}`);
+      throw new Error('Funcionário removido no banco, mas falhou a desativação no Firebase Auth.');
+    }
+
+    try {
+      await this.removeEmployeeFromFirestore(companyId, id);
+    } catch (error: any) {
+      this.logger.error(`Falha ao remover funcionário ${id} do Firebase: ${error?.message || error}`);
+      throw new Error('Funcionário removido no banco, mas falhou a remoção no Firebase.');
     }
 
     return { id };
