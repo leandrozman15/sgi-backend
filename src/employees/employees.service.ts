@@ -19,7 +19,12 @@ export class EmployeeService {
   private getFirebaseAuth(): admin.auth.Auth | null {
     if (this.firebaseAuth) return this.firebaseAuth;
     if (this.firebaseApp) return this.firebaseApp.auth();
-    return null;
+    // Fallback: Firebase may have been initialized by AuthGuard or another module
+    try {
+      return admin.app().auth();
+    } catch {
+      return null;
+    }
   }
 
   private normalizeEmail(value: any): string {
@@ -133,13 +138,17 @@ export class EmployeeService {
   }
 
   private getEmployeeDocRef(companyId: string, employeeId: string) {
-    if (!this.firebaseApp) return null;
-    return this.firebaseApp
-      .firestore()
-      .collection('companies')
-      .doc(companyId)
-      .collection('employees')
-      .doc(employeeId);
+    try {
+      const app = this.firebaseApp || admin.app();
+      return app
+        .firestore()
+        .collection('companies')
+        .doc(companyId)
+        .collection('employees')
+        .doc(employeeId);
+    } catch {
+      return null;
+    }
   }
 
   private mapEmployeeToFirestore(employee: any, companyId: string) {
@@ -330,13 +339,18 @@ export class EmployeeService {
 
     const createdEmployee = this.toClientEmployee(created);
 
-    try {
-      const firebaseUid = await this.ensureFirebaseAuthForEmployee(createdEmployee, data, companyId);
-      if (firebaseUid) {
-        createdEmployee.firebaseUid = firebaseUid;
+    if (createdEmployee.hasAccess) {
+      try {
+        const firebaseUid = await this.ensureFirebaseAuthForEmployee(createdEmployee, data, companyId);
+        if (firebaseUid) {
+          createdEmployee.firebaseUid = firebaseUid;
+        }
+      } catch (error: any) {
+        this.logger.error(`Firebase Auth failed for employee ${createdEmployee.id}: ${error?.message || error}`);
+        // Rollback: remove the Postgres record since Firebase Auth is required for login
+        await (this.prisma as any).employees.deleteMany({ where: { id: createdEmployee.id } });
+        throw new Error(error?.message || 'Não foi possível criar acesso ao sistema para este funcionário.');
       }
-    } catch (error: any) {
-      this.logger.warn(`Firebase Auth sync skipped for employee ${createdEmployee.id}: ${error?.message || error}`);
     }
 
     try {
@@ -462,7 +476,8 @@ export class EmployeeService {
         await this.disableFirebaseAuthForEmployee(updatedEmployee);
       }
     } catch (error: any) {
-      this.logger.warn(`Firebase Auth sync skipped for employee ${updatedEmployee.id}: ${error?.message || error}`);
+      this.logger.error(`Firebase Auth sync failed for employee ${updatedEmployee.id}: ${error?.message || error}`);
+      throw new Error(error?.message || 'Funcionário atualizado, mas falhou a sincronização de acesso.');
     }
 
     try {
