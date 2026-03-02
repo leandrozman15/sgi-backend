@@ -177,7 +177,8 @@ export class EmployeeService {
   private async syncEmployeeToFirestore(employee: any, companyId: string, isCreate = false) {
     const ref = this.getEmployeeDocRef(companyId, employee.id);
     if (!ref) {
-      throw new Error('Firebase não inicializado no backend (FIREBASE_APP indisponível).');
+      this.logger.warn(`Firestore sync skipped: Firebase not initialized.`);
+      return;
     }
 
     const payload = this.mapEmployeeToFirestore(employee, companyId) as any;
@@ -191,7 +192,8 @@ export class EmployeeService {
   private async removeEmployeeFromFirestore(companyId: string, employeeId: string) {
     const ref = this.getEmployeeDocRef(companyId, employeeId);
     if (!ref) {
-      throw new Error('Firebase não inicializado no backend (FIREBASE_APP indisponível).');
+      this.logger.warn(`Firestore delete skipped: Firebase not initialized.`);
+      return;
     }
     await ref.delete();
   }
@@ -334,15 +336,13 @@ export class EmployeeService {
         createdEmployee.firebaseUid = firebaseUid;
       }
     } catch (error: any) {
-      this.logger.error(`Falha ao criar usuário Firebase Auth para funcionário ${createdEmployee.id}: ${error?.message || error}`);
-      throw new Error(error?.message || 'Funcionário criado no banco, mas falhou a criação no Firebase Auth.');
+      this.logger.warn(`Firebase Auth sync skipped for employee ${createdEmployee.id}: ${error?.message || error}`);
     }
 
     try {
       await this.syncEmployeeToFirestore(createdEmployee, companyId, true);
     } catch (error: any) {
-      this.logger.error(`Falha ao sincronizar funcionário ${createdEmployee.id} no Firebase: ${error?.message || error}`);
-      throw new Error('Funcionário criado no banco, mas falhou a sincronização com Firebase.');
+      this.logger.warn(`Firestore sync skipped for employee ${createdEmployee.id}: ${error?.message || error}`);
     }
 
     return createdEmployee;
@@ -462,15 +462,13 @@ export class EmployeeService {
         await this.disableFirebaseAuthForEmployee(updatedEmployee);
       }
     } catch (error: any) {
-      this.logger.error(`Falha ao sincronizar Firebase Auth para funcionário ${updatedEmployee.id}: ${error?.message || error}`);
-      throw new Error(error?.message || 'Funcionário atualizado no banco, mas falhou a sincronização no Firebase Auth.');
+      this.logger.warn(`Firebase Auth sync skipped for employee ${updatedEmployee.id}: ${error?.message || error}`);
     }
 
     try {
       await this.syncEmployeeToFirestore(updatedEmployee, companyId);
     } catch (error: any) {
-      this.logger.error(`Falha ao atualizar funcionário ${updatedEmployee.id} no Firebase: ${error?.message || error}`);
-      throw new Error('Funcionário atualizado no banco, mas falhou a sincronização com Firebase.');
+      this.logger.warn(`Firestore sync skipped for employee ${updatedEmployee.id}: ${error?.message || error}`);
     }
 
     return updatedEmployee;
