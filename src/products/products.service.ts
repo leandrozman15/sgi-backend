@@ -102,6 +102,9 @@ export class ProductService {
 
   private toClientProduct(entity: any, variantsFromDb?: any[]) {
     const extra = entity?.data && typeof entity.data === 'object' ? entity.data : {};
+    // Exclude 'data' from spread so that pickObjectPayload doesn't
+    // mistake the JSON blob for a wrapper and unwrap the response.
+    const { data: _rawJsonBlob, ...entityWithoutData } = entity || {};
     const normalizedVariants = Array.isArray(variantsFromDb)
       ? variantsFromDb.map((v) => ({
           ...v,
@@ -113,7 +116,7 @@ export class ProductService {
       : entity.variants ?? extra.variants ?? [];
 
     return {
-      ...entity,
+      ...entityWithoutData,
       nome: entity.name,
       sku: entity.sku ?? extra.sku ?? entity.code ?? null,
       published: entity.published ?? extra.published ?? false,
