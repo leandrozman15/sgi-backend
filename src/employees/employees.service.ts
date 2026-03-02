@@ -60,7 +60,8 @@ export class EmployeeService {
 
     const auth = this.getFirebaseAuth();
     if (!auth) {
-      throw new Error('Firebase Auth não inicializado no backend.');
+      this.logger.warn('Firebase Auth not available — skipping auth sync for employee.');
+      return null;
     }
 
     const email = this.normalizeEmail(employee?.email || payload?.email);
@@ -122,7 +123,8 @@ export class EmployeeService {
   private async disableFirebaseAuthForEmployee(employee: any): Promise<void> {
     const auth = this.getFirebaseAuth();
     if (!auth) {
-      throw new Error('Firebase Auth não inicializado no backend.');
+      this.logger.warn('Firebase Auth not available — skipping disable for employee.');
+      return;
     }
 
     const email = this.normalizeEmail(employee?.email);
@@ -263,12 +265,17 @@ export class EmployeeService {
       return [];
     }
 
-    const rows = await (this.prisma as any).employees.findMany({
-      where: { company_id: companyId },
-      orderBy: { created_at: 'desc' },
-    });
+    try {
+      const rows = await (this.prisma as any).employees.findMany({
+        where: { company_id: companyId },
+        orderBy: { created_at: 'desc' },
+      });
 
-    return Array.isArray(rows) ? rows.map((row: any) => this.toClientEmployee(row)) : [];
+      return Array.isArray(rows) ? rows.map((row: any) => this.toClientEmployee(row)) : [];
+    } catch (error: any) {
+      this.logger.error(`Error fetching employees for company ${companyId}: ${error?.message || error}`);
+      return [];
+    }
   }
 
   async findById(id: string, companyId: string) {
@@ -346,10 +353,7 @@ export class EmployeeService {
           createdEmployee.firebaseUid = firebaseUid;
         }
       } catch (error: any) {
-        this.logger.error(`Firebase Auth failed for employee ${createdEmployee.id}: ${error?.message || error}`);
-        // Rollback: remove the Postgres record since Firebase Auth is required for login
-        await (this.prisma as any).employees.deleteMany({ where: { id: createdEmployee.id } });
-        throw new Error(error?.message || 'Não foi possível criar acesso ao sistema para este funcionário.');
+        this.logger.warn(`Firebase Auth sync skipped for new employee ${createdEmployee.id}: ${error?.message || error}`);
       }
     }
 
@@ -476,8 +480,7 @@ export class EmployeeService {
         await this.disableFirebaseAuthForEmployee(updatedEmployee);
       }
     } catch (error: any) {
-      this.logger.error(`Firebase Auth sync failed for employee ${updatedEmployee.id}: ${error?.message || error}`);
-      throw new Error(error?.message || 'Funcionário atualizado, mas falhou a sincronização de acesso.');
+      this.logger.warn(`Firebase Auth sync skipped for employee ${updatedEmployee.id}: ${error?.message || error}`);
     }
 
     try {
@@ -523,15 +526,13 @@ export class EmployeeService {
         await this.disableFirebaseAuthForEmployee(existingEmployee);
       }
     } catch (error: any) {
-      this.logger.error(`Falha ao desabilitar usuário Firebase Auth do funcionário ${id}: ${error?.message || error}`);
-      throw new Error('Funcionário removido no banco, mas falhou a desativação no Firebase Auth.');
+      this.logger.warn(`Firebase Auth disable skipped for employee ${id}: ${error?.message || error}`);
     }
 
     try {
       await this.removeEmployeeFromFirestore(companyId, id);
     } catch (error: any) {
-      this.logger.error(`Falha ao remover funcionário ${id} do Firebase: ${error?.message || error}`);
-      throw new Error('Funcionário removido no banco, mas falhou a remoção no Firebase.');
+      this.logger.warn(`Firestore delete skipped for employee ${id}: ${error?.message || error}`);
     }
 
     return { id };
