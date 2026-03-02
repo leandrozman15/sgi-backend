@@ -88,11 +88,21 @@ export class EmployeeService {
         disabled: false,
       });
     } else {
-      await auth.updateUser(userRecord.uid, {
+      const authPassword = String(payload?.authPassword || '').trim();
+      const updatePayload: admin.auth.UpdateRequest = {
         email,
-        displayName: String(employee?.name || userRecord.displayName || '').trim() || userRecord.displayName || undefined,
+        displayName:
+          String(employee?.name || userRecord.displayName || '').trim() ||
+          userRecord.displayName ||
+          undefined,
         disabled: false,
-      });
+      };
+
+      if (authPassword && authPassword.length >= 6) {
+        updatePayload.password = authPassword;
+      }
+
+      await auth.updateUser(userRecord.uid, updatePayload);
     }
 
     await auth.setCustomUserClaims(userRecord.uid, {

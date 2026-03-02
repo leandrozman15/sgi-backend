@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
@@ -352,6 +352,30 @@ export class ProductService {
   async deleteItem(id: string, companyId: string) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const variants = await this.prisma.product_variants.findMany({
+      where: {
+        product_id: id,
+        company_id: companyId,
+      },
+      select: { id: true },
+    });
+
+    if (variants.length) {
+      const variantIds = variants.map((v) => v.id);
+      const usageCount = await (this.prisma as any).production_orders.count({
+        where: {
+          variant_id: { in: variantIds },
+          company_id: companyId,
+        },
+      }).catch(() => 0);
+
+      if (usageCount > 0) {
+        throw new BadRequestException(
+          'Este produto está vinculado a ordens de produção e não pode ser removido.',
+        );
+      }
     }
 
     const deleted = await this.prisma.products.deleteMany({
