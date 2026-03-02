@@ -23,14 +23,14 @@ model carriers {
   id        String    @id(map: "Carrier_pkey")
   companyId String
   nome      String
-  cnpj      String?
-  ie        String?
-  contacts  Json?
-  endereco  Json?
   data      Json?
   createdAt DateTime  @default(now())
   updatedAt DateTime
   deletedAt DateTime?
+  cnpj      String?
+  contacts  Json?
+  endereco  Json?
+  ie        String?
 
   @@index([companyId, deletedAt], map: "Carrier_companyId_deletedAt_idx")
   @@index([companyId], map: "Carrier_companyId_idx")
@@ -50,72 +50,72 @@ model clients {
 }
 
 model companies {
-  id                           String                         @id @default(dbgenerated("(gen_random_uuid())::text"))
-  name                         String
-  cnpj                         String?                        @unique
-  plan                         String?                        @default("basic")
-  active                       Boolean?                       @default(true)
-  created_at                   DateTime?                      @default(now()) @db.Timestamp(6)
-  updated_at                   DateTime?                      @default(now()) @db.Timestamp(6)
-  brasil_nfe_personal_token    String?
-  brasil_nfe_company_token     String?
-  brasil_nfe_credentials_updated_at DateTime?                @db.Timestamptz(6)
-  calibrations                 calibrations[]
-  quality_complaints           quality_complaints[]
-  quality_inspections          quality_inspections[]
-  employees                    employees[]
-  financial_transactions       financial_transactions[]
-  financial_bank_transactions  financial_bank_transactions[]
-  financial_salary_payments    financial_salary_payments[]
-  accounting_chart_accounts    accounting_chart_accounts[]
-  accounting_cost_centers      accounting_cost_centers[]
-  accounting_fiscal_periods    accounting_fiscal_periods[]
-  accounting_journal_entries   accounting_journal_entries[]
-  accounting_journal_entry_lines accounting_journal_entry_lines[]
-  accounting_accounts_receivable accounting_accounts_receivable[]
-  accounting_accounts_payable  accounting_accounts_payable[]
-  maintenance_downtimes        maintenance_downtimes[]
-  maintenance_plans            maintenance_plans[]
-  maintenance_schedules        maintenance_schedules[]
-  maintenance_work_order_parts maintenance_work_order_parts[]
-  maintenance_work_orders      maintenance_work_orders[]
-  machine_documents            machine_documents[]
-  machine_meter_readings       machine_meter_readings[]
-  machines                     machines[]
-  hr_attendance_records        hr_attendance_records[]
-  hr_epi_deliveries            hr_epi_deliveries[]
-  hr_vacations                 hr_vacations[]
-  hr_work_accidents            hr_work_accidents[]
-  hr_overtime_records          hr_overtime_records[]
-  hr_production_coverages      hr_production_coverages[]
-  hr_training_matrix_entries   hr_training_matrix_entries[]
-  hr_benefits                  hr_benefits[]
-  hr_benefit_services          hr_benefit_services[]
-  hr_benefit_controls          hr_benefit_controls[]
-  inventory_lot_movements      inventory_lot_movements[]
-  inventory_lots               inventory_lots[]
-  inventory_reservations       inventory_reservations[]
-  inventory_stock_balances     inventory_stock_balances[]
-  inventory_storage_positions  inventory_storage_positions[]
-  inventory_storage_zones      inventory_storage_zones[]
-  inventory_warehouse_layouts  inventory_warehouse_layouts[]
-  production_orders            production_orders[]
-  product_variants             product_variants[]
-  products                     products[]
-  purchase_orders              purchase_orders[]
-  purchase_requests            purchase_requests[]
-  sale_items                   sale_items[]
-  sales_fiscal_documents       sales_fiscal_documents[]
-  sales_fiscal_events          sales_fiscal_events[]
-  sales_nfse_documents         sales_nfse_documents[]
-  sales_nfse_events            sales_nfse_events[]
-  fiscal_tax_apportionments    fiscal_tax_apportionments[]
-  sale_status_history          sale_status_history[]
-  subscription_history         subscription_history[]
-  tax_service_payments         tax_service_payments[]
-  user_companies               user_companies[]
-  users                        users[]
-  work_accidents               work_accidents[]
+  id                                String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name                              String
+  cnpj                              String?                          @unique
+  plan                              String?                          @default("basic")
+  active                            Boolean?                         @default(true)
+  created_at                        DateTime?                        @default(now()) @db.Timestamp(6)
+  updated_at                        DateTime?                        @default(now()) @db.Timestamp(6)
+  brasil_nfe_personal_token         String?
+  brasil_nfe_company_token          String?
+  brasil_nfe_credentials_updated_at DateTime?                        @db.Timestamptz(6)
+  accounting_accounts_payable       accounting_accounts_payable[]
+  accounting_accounts_receivable    accounting_accounts_receivable[]
+  accounting_chart_accounts         accounting_chart_accounts[]
+  accounting_cost_centers           accounting_cost_centers[]
+  accounting_fiscal_periods         accounting_fiscal_periods[]
+  accounting_journal_entries        accounting_journal_entries[]
+  accounting_journal_entry_lines    accounting_journal_entry_lines[]
+  calibrations                      calibrations[]
+  employees                         employees[]
+  financial_bank_transactions       financial_bank_transactions[]
+  financial_salary_payments         financial_salary_payments[]
+  financial_transactions            financial_transactions[]
+  fiscal_tax_apportionments         fiscal_tax_apportionments[]
+  hr_attendance_records             hr_attendance_records[]
+  hr_benefit_controls               hr_benefit_controls[]
+  hr_benefit_services               hr_benefit_services[]
+  hr_benefits                       hr_benefits[]
+  hr_epi_deliveries                 hr_epi_deliveries[]
+  hr_overtime_records               hr_overtime_records[]
+  hr_production_coverages           hr_production_coverages[]
+  hr_training_matrix_entries        hr_training_matrix_entries[]
+  hr_vacations                      hr_vacations[]
+  hr_work_accidents                 hr_work_accidents[]
+  inventory_lot_movements           inventory_lot_movements[]
+  inventory_lots                    inventory_lots[]
+  inventory_reservations            inventory_reservations[]
+  inventory_stock_balances          inventory_stock_balances[]
+  inventory_storage_positions       inventory_storage_positions[]
+  inventory_storage_zones           inventory_storage_zones[]
+  inventory_warehouse_layouts       inventory_warehouse_layouts[]
+  machine_documents                 machine_documents[]
+  machine_meter_readings            machine_meter_readings[]
+  machines                          machines[]
+  maintenance_downtimes             maintenance_downtimes[]
+  maintenance_plans                 maintenance_plans[]
+  maintenance_schedules             maintenance_schedules[]
+  maintenance_work_order_parts      maintenance_work_order_parts[]
+  maintenance_work_orders           maintenance_work_orders[]
+  product_variants                  product_variants[]
+  production_orders                 production_orders[]
+  products                          products[]
+  purchase_orders                   purchase_orders[]
+  purchase_requests                 purchase_requests[]
+  quality_complaints                quality_complaints[]
+  quality_inspections               quality_inspections[]
+  sale_items                        sale_items[]
+  sale_status_history               sale_status_history[]
+  sales_fiscal_documents            sales_fiscal_documents[]
+  sales_fiscal_events               sales_fiscal_events[]
+  sales_nfse_documents              sales_nfse_documents[]
+  sales_nfse_events                 sales_nfse_events[]
+  subscription_history              subscription_history[]
+  tax_service_payments              tax_service_payments[]
+  user_companies                    user_companies[]
+  users                             users[]
+  work_accidents                    work_accidents[]
 }
 
 model employees {
@@ -123,30 +123,30 @@ model employees {
   name                String
   email               String?   @unique
   document            String?   @unique
-  cpf                 String?
-  role                String?
-  access_level        String?
   position            String?
   department          String?
   status              String?   @default("active")
-  has_access          Boolean?  @default(false)
-  commission          Decimal?  @db.Decimal(10, 2)
-  phone               String?
-  address             String?
-  registration_number String?
-  start_date          DateTime? @db.Timestamp(6)
-  vacation_days       Int?
-  banco               String?
-  conta               String?
-  pix                 String?
-  tamanho_camisa      String?
-  tamanho_calca       String?
-  numero_botas        String?
-  permissions         Json?
-  data                Json?
   company_id          String
   created_at          DateTime? @default(now()) @db.Timestamp(6)
   updated_at          DateTime? @default(now()) @db.Timestamp(6)
+  access_level        String?
+  address             String?
+  banco               String?
+  commission          Decimal?  @db.Decimal(10, 2)
+  conta               String?
+  cpf                 String?
+  data                Json?
+  has_access          Boolean?  @default(false)
+  numero_botas        String?
+  permissions         Json?
+  phone               String?
+  pix                 String?
+  registration_number String?
+  role                String?
+  start_date          DateTime? @db.Timestamp(6)
+  tamanho_calca       String?
+  tamanho_camisa      String?
+  vacation_days       Int?
   companies           companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
@@ -163,54 +163,54 @@ model financial_transactions {
 }
 
 model financial_bank_transactions {
-  id                String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id        String
-  transaction_type  String
-  category          String?
-  description       String?
-  amount            Decimal   @db.Decimal(14, 4)
-  transaction_date  DateTime  @db.Timestamptz(6)
-  due_date          DateTime? @db.Timestamptz(6)
-  payment_method    String?
-  account_name      String?
-  status            String?   @default("PENDING")
-  reference_type    String?
-  reference_id      String?
-  notes             String?
-  data              Json?
-  created_at        DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
-  companies         companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id               String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id       String
+  transaction_type String
+  category         String?
+  description      String?
+  amount           Decimal   @db.Decimal(14, 4)
+  transaction_date DateTime  @db.Timestamptz(6)
+  due_date         DateTime? @db.Timestamptz(6)
+  payment_method   String?
+  account_name     String?
+  status           String?   @default("PENDING")
+  reference_type   String?
+  reference_id     String?
+  notes            String?
+  data             Json?
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  companies        companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "financial_bank_transactions_company_id_idx")
-  @@index([transaction_date], map: "financial_bank_transactions_transaction_date_idx")
-  @@index([status], map: "financial_bank_transactions_status_idx")
-  @@index([transaction_type], map: "financial_bank_transactions_transaction_type_idx")
+  @@index([company_id])
+  @@index([transaction_date])
+  @@index([status])
+  @@index([transaction_type])
 }
 
 model financial_salary_payments {
-  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id          String
-  employee_id         String?
-  employee_name       String?
-  period_reference    String?
-  payroll_date        DateTime? @db.Timestamptz(6)
-  gross_amount        Decimal?  @db.Decimal(14, 4)
-  discounts_amount    Decimal?  @db.Decimal(14, 4)
-  net_amount          Decimal?  @db.Decimal(14, 4)
-  payment_date        DateTime? @db.Timestamptz(6)
-  payment_method      String?
-  status              String?   @default("PENDING")
-  notes               String?
-  data                Json?
-  created_at          DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
-  companies           companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id               String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id       String
+  employee_id      String?
+  employee_name    String?
+  period_reference String?
+  payroll_date     DateTime? @db.Timestamptz(6)
+  gross_amount     Decimal?  @db.Decimal(14, 4)
+  discounts_amount Decimal?  @db.Decimal(14, 4)
+  net_amount       Decimal?  @db.Decimal(14, 4)
+  payment_date     DateTime? @db.Timestamptz(6)
+  payment_method   String?
+  status           String?   @default("PENDING")
+  notes            String?
+  data             Json?
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  companies        companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "financial_salary_payments_company_id_idx")
-  @@index([employee_id], map: "financial_salary_payments_employee_id_idx")
-  @@index([period_reference], map: "financial_salary_payments_period_reference_idx")
-  @@index([status], map: "financial_salary_payments_status_idx")
+  @@index([company_id])
+  @@index([employee_id])
+  @@index([period_reference])
+  @@index([status])
 }
 
 model inventory_movements {
@@ -226,47 +226,47 @@ model inventory_movements {
 model machines {
   id                      String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
   name                    String
-  model                   String?
   code                    String?                   @unique
   type                    String?
-  manufacturer            String?
-  serial_number           String?
-  tag                     String?
-  sector                  String?
-  location                String?
-  acquisition_date        DateTime?                 @db.Timestamp(6)
-  installation_date       DateTime?                 @db.Timestamp(6)
-  warranty_until          DateTime?                 @db.Timestamp(6)
-  power_kw                Decimal?                  @db.Decimal(10, 3)
-  voltage_v               Decimal?                  @db.Decimal(10, 3)
-  pressure_bar            Decimal?                  @db.Decimal(10, 3)
-  rotation_rpm            Decimal?                  @db.Decimal(10, 3)
-  temperature_range       String?
-  lubrication_reqs        String?
-  other_inputs            String?
-  required_epp            String?
-  main_risks              String?
-  lubrication_points      String?
-  maintenance_intervals   String?
-  critical_spares         String?
-  manual_url              String?
-  maintenance_notes       String?
-  maintenance_history     Json?
-  last_maintenance        DateTime?                 @db.Timestamp(6)
-  next_maintenance        DateTime?                 @db.Timestamp(6)
-  archived                Boolean?                  @default(false)
-  data                    Json?
   status                  String?                   @default("active")
   company_id              String
   created_at              DateTime?                 @default(now()) @db.Timestamp(6)
   updated_at              DateTime?                 @default(now()) @db.Timestamp(6)
+  acquisition_date        DateTime?                 @db.Timestamp(6)
+  archived                Boolean?                  @default(false)
+  critical_spares         String?
+  data                    Json?
+  installation_date       DateTime?                 @db.Timestamp(6)
+  last_maintenance        DateTime?                 @db.Timestamp(6)
+  location                String?
+  lubrication_points      String?
+  lubrication_reqs        String?
+  main_risks              String?
+  maintenance_history     Json?
+  maintenance_intervals   String?
+  maintenance_notes       String?
+  manual_url              String?
+  manufacturer            String?
+  model                   String?
+  next_maintenance        DateTime?                 @db.Timestamp(6)
+  other_inputs            String?
+  power_kw                Decimal?                  @db.Decimal(10, 3)
+  pressure_bar            Decimal?                  @db.Decimal(10, 3)
+  required_epp            String?
+  rotation_rpm            Decimal?                  @db.Decimal(10, 3)
+  sector                  String?
+  serial_number           String?
+  tag                     String?
+  temperature_range       String?
+  voltage_v               Decimal?                  @db.Decimal(10, 3)
+  warranty_until          DateTime?                 @db.Timestamp(6)
+  machine_documents       machine_documents[]
+  machine_meter_readings  machine_meter_readings[]
+  companies               companies                 @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   maintenance_downtimes   maintenance_downtimes[]
   maintenance_plans       maintenance_plans[]
   maintenance_schedules   maintenance_schedules[]
   maintenance_work_orders maintenance_work_orders[]
-  machine_documents       machine_documents[]
-  machine_meter_readings  machine_meter_readings[]
-  companies               companies                 @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model maintenance_plans {
@@ -291,8 +291,8 @@ model maintenance_plans {
   machines              machines                @relation(fields: [machine_id], references: [id], onDelete: Cascade)
   maintenance_schedules maintenance_schedules[]
 
-  @@index([company_id], map: "maintenance_plans_company_id_idx")
-  @@index([machine_id], map: "maintenance_plans_machine_id_idx")
+  @@index([company_id])
+  @@index([machine_id])
   @@index([company_id, machine_id], map: "maintenance_plans_company_machine_idx")
 }
 
@@ -312,13 +312,13 @@ model maintenance_schedules {
   updated_at              DateTime                  @default(now()) @db.Timestamp(6)
   companies               companies                 @relation(fields: [company_id], references: [id], onDelete: Cascade)
   machines                machines                  @relation(fields: [machine_id], references: [id], onDelete: Cascade)
-  maintenance_plans       maintenance_plans?        @relation(fields: [maintenance_plan_id], references: [id], onDelete: SetNull)
+  maintenance_plans       maintenance_plans?        @relation(fields: [maintenance_plan_id], references: [id])
   maintenance_work_orders maintenance_work_orders[]
 
-  @@index([company_id], map: "maintenance_schedules_company_id_idx")
-  @@index([machine_id], map: "maintenance_schedules_machine_id_idx")
-  @@index([scheduled_for], map: "maintenance_schedules_scheduled_for_idx")
-  @@index([status], map: "maintenance_schedules_status_idx")
+  @@index([company_id])
+  @@index([machine_id])
+  @@index([scheduled_for])
+  @@index([status])
 }
 
 model maintenance_work_orders {
@@ -348,17 +348,17 @@ model maintenance_work_orders {
   data                         Json?
   created_at                   DateTime                       @default(now()) @db.Timestamp(6)
   updated_at                   DateTime                       @default(now()) @db.Timestamp(6)
-  companies                    companies                      @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  machines                     machines                       @relation(fields: [machine_id], references: [id], onDelete: Cascade)
-  maintenance_schedules        maintenance_schedules?         @relation(fields: [maintenance_schedule_id], references: [id], onDelete: SetNull)
   maintenance_downtimes        maintenance_downtimes[]
   maintenance_work_order_parts maintenance_work_order_parts[]
+  companies                    companies                      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  machines                     machines                       @relation(fields: [machine_id], references: [id], onDelete: Cascade)
+  maintenance_schedules        maintenance_schedules?         @relation(fields: [maintenance_schedule_id], references: [id])
 
-  @@index([company_id], map: "maintenance_work_orders_company_id_idx")
-  @@index([machine_id], map: "maintenance_work_orders_machine_id_idx")
+  @@index([company_id])
+  @@index([machine_id])
   @@index([maintenance_schedule_id], map: "maintenance_work_orders_schedule_id_idx")
-  @@index([status], map: "maintenance_work_orders_status_idx")
-  @@index([order_number], map: "maintenance_work_orders_order_number_idx")
+  @@index([status])
+  @@index([order_number])
 }
 
 model maintenance_work_order_parts {
@@ -377,10 +377,10 @@ model maintenance_work_order_parts {
   companies                 companies               @relation(fields: [company_id], references: [id], onDelete: Cascade)
   maintenance_work_orders   maintenance_work_orders @relation(fields: [maintenance_work_order_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "maintenance_work_order_parts_company_id_idx")
+  @@index([company_id])
   @@index([maintenance_work_order_id], map: "maintenance_work_order_parts_order_id_idx")
-  @@index([raw_material_id], map: "maintenance_work_order_parts_raw_material_id_idx")
-  @@index([product_id], map: "maintenance_work_order_parts_product_id_idx")
+  @@index([raw_material_id])
+  @@index([product_id])
 }
 
 model machine_meter_readings {
@@ -398,10 +398,10 @@ model machine_meter_readings {
   companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
   machines      machines  @relation(fields: [machine_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "machine_meter_readings_company_id_idx")
-  @@index([machine_id], map: "machine_meter_readings_machine_id_idx")
-  @@index([meter_type], map: "machine_meter_readings_meter_type_idx")
-  @@index([reading_at], map: "machine_meter_readings_reading_at_idx")
+  @@index([company_id])
+  @@index([machine_id])
+  @@index([meter_type])
+  @@index([reading_at])
 }
 
 model maintenance_downtimes {
@@ -422,12 +422,12 @@ model maintenance_downtimes {
   updated_at                DateTime                 @default(now()) @db.Timestamp(6)
   companies                 companies                @relation(fields: [company_id], references: [id], onDelete: Cascade)
   machines                  machines                 @relation(fields: [machine_id], references: [id], onDelete: Cascade)
-  maintenance_work_orders   maintenance_work_orders? @relation(fields: [maintenance_work_order_id], references: [id], onDelete: SetNull)
+  maintenance_work_orders   maintenance_work_orders? @relation(fields: [maintenance_work_order_id], references: [id])
 
-  @@index([company_id], map: "maintenance_downtimes_company_id_idx")
-  @@index([machine_id], map: "maintenance_downtimes_machine_id_idx")
+  @@index([company_id])
+  @@index([machine_id])
   @@index([maintenance_work_order_id], map: "maintenance_downtimes_work_order_id_idx")
-  @@index([started_at], map: "maintenance_downtimes_started_at_idx")
+  @@index([started_at])
 }
 
 model machine_documents {
@@ -448,9 +448,9 @@ model machine_documents {
   companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
   machines      machines  @relation(fields: [machine_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "machine_documents_company_id_idx")
-  @@index([machine_id], map: "machine_documents_machine_id_idx")
-  @@index([document_type], map: "machine_documents_document_type_idx")
+  @@index([company_id])
+  @@index([machine_id])
+  @@index([document_type])
 }
 
 model memberships {
@@ -464,88 +464,87 @@ model memberships {
 }
 
 model production_orders {
-  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  number     String    @unique
+  id         String            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  number     String            @unique
   product_id String
-  variant_id String?
   quantity   Int
-  status     String?   @default("pending")
+  status     String?           @default("pending")
   company_id String
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  updated_at DateTime? @default(now()) @db.Timestamp(6)
-  companies  companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  products   products  @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  variants   product_variants? @relation(fields: [variant_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  created_at DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at DateTime?         @default(now()) @db.Timestamp(6)
+  variant_id String?
+  companies  companies         @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products   products          @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  variants   product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
 
-  @@index([variant_id], map: "production_orders_variant_id_idx")
+  @@index([variant_id])
 }
 
 model products {
   id                           String              @id @default(dbgenerated("(gen_random_uuid())::text"))
   name                         String
   code                         String?             @unique
-  sku                          String?
-  published                    Boolean?            @default(false)
-  gs1_code                     String?
-  customer_barcode             String?
-  type                         String?
   description                  String?
   price                        Decimal?            @db.Decimal(10, 2)
-  current_stock                Int?
-  weight                       Decimal?            @db.Decimal(10, 3)
-  dangerous_goods_class        String?
-  country_of_origin            String?
-  ncm                          String?
-  cest                         String?
-  cfop                         String?
-  csosn                        String?
-  ipi_aliquota                 Decimal?            @db.Decimal(10, 4)
-  ipi_situacao_tributaria      String?
-  ipi_cod_enquadramento        String?
-  icms_aliquota                Decimal?            @db.Decimal(10, 4)
-  sujeito_icms_st              Boolean?
-  mva_aliquota                 Decimal?            @db.Decimal(10, 4)
-  valor_icms_st                Decimal?            @db.Decimal(12, 4)
-  origem_mercadoria            String?
-  unidade_tributavel           String?
-  pis_situacao_tributaria      String?
-  pis_aliquota                 Decimal?            @db.Decimal(10, 4)
-  cofins_situacao_tributaria   String?
-  cofins_aliquota              Decimal?            @db.Decimal(10, 4)
-  icms_modalidade_bc           String?
-  cod_classificacao_tributaria String?
-  aliquota_ibs_uf              Decimal?            @db.Decimal(10, 4)
-  aliquota_ibs_mun             Decimal?            @db.Decimal(10, 4)
-  aliquota_cbs                 Decimal?            @db.Decimal(10, 4)
-  base_calculo_ibs_cbs         Decimal?            @db.Decimal(14, 4)
-  image_urls                   Json?
-  variants                     Json?
-  raw_materials                Json?
-  stages                       Json?
-  technical_specs              Json?
-  data                         Json?
   company_id                   String
   created_at                   DateTime?           @default(now()) @db.Timestamp(6)
   updated_at                   DateTime?           @default(now()) @db.Timestamp(6)
+  aliquota_cbs                 Decimal?            @db.Decimal(10, 4)
+  aliquota_ibs_mun             Decimal?            @db.Decimal(10, 4)
+  aliquota_ibs_uf              Decimal?            @db.Decimal(10, 4)
+  cest                         String?
+  cfop                         String?
+  cod_classificacao_tributaria String?
+  cofins_aliquota              Decimal?            @db.Decimal(10, 4)
+  cofins_situacao_tributaria   String?
+  country_of_origin            String?
+  csosn                        String?
+  current_stock                Int?
+  customer_barcode             String?
+  dangerous_goods_class        String?
+  data                         Json?
+  gs1_code                     String?
+  icms_aliquota                Decimal?            @db.Decimal(10, 4)
+  icms_modalidade_bc           String?
+  image_urls                   Json?
+  ipi_aliquota                 Decimal?            @db.Decimal(10, 4)
+  ipi_cod_enquadramento        String?
+  ipi_situacao_tributaria      String?
+  mva_aliquota                 Decimal?            @db.Decimal(10, 4)
+  ncm                          String?
+  origem_mercadoria            String?
+  pis_aliquota                 Decimal?            @db.Decimal(10, 4)
+  pis_situacao_tributaria      String?
+  published                    Boolean?            @default(false)
+  raw_materials                Json?
+  sku                          String?
+  stages                       Json?
+  sujeito_icms_st              Boolean?
+  technical_specs              Json?
+  type                         String?
+  unidade_tributavel           String?
+  valor_icms_st                Decimal?            @db.Decimal(12, 4)
+  variants                     Json?
+  weight                       Decimal?            @db.Decimal(10, 3)
+  base_calculo_ibs_cbs         Decimal?            @db.Decimal(14, 4)
   product_variants             product_variants[]
   production_orders            production_orders[]
   companies                    companies           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model product_variants {
-  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  product_id  String
-  company_id  String
-  name        String
-  sku         String?
-  code        String?
-  price       Decimal?  @db.Decimal(12, 4)
-  data        Json?
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
-  updated_at  DateTime? @default(now()) @db.Timestamp(6)
-
-  products    products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  companies   companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  product_id        String
+  company_id        String
+  name              String
+  sku               String?
+  code              String?
+  price             Decimal?            @db.Decimal(12, 4)
+  data              Json?
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamp(6)
+  companies         companies           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products          products            @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   production_orders production_orders[]
 
   @@index([product_id], map: "ProductVariant_product_id_idx")
@@ -553,53 +552,53 @@ model product_variants {
 }
 
 model raw_materials {
-  id                         String    @id(map: "RawMaterial_pkey")
+  id                         String           @id(map: "RawMaterial_pkey")
   companyId                  String
   nome                       String
-  code                       String?
-  sku                        String?
-  gs1Code                    String?
-  customerBarcode            String?
-  group                      String?
-  lote                       String?
-  minStock                   Decimal?  @db.Decimal(12, 4)
-  maxStock                   Decimal?  @db.Decimal(12, 4)
-  currentStock               Decimal?  @db.Decimal(12, 4)
-  weight                     Decimal?  @db.Decimal(12, 4)
-  dangerousGoodsClass        String?
-  tipoMaterial               String?
-  unidadeConsumo             String?
-  fatorConversao             Decimal?  @db.Decimal(12, 4)
-  validadeDias               Int?
-  localizacaoEstoque         String?
-  obsTecnicas                String?
-  ncm                        String?
-  cest                       String?
-  cfop                       String?
-  csosn                      String?
-  unidadeTributavel          String?
-  origem                     String?
-  ipiAliquota                Decimal?  @db.Decimal(10, 4)
-  ipiSituacaoTributaria      String?
-  ipiCodEnquadramento        String?
-  icmsAliquota               Decimal?  @db.Decimal(10, 4)
-  sujeitoIcmsSt              Boolean?
-  mvaAliquota                Decimal?  @db.Decimal(10, 4)
-  valorIcmsSt                Decimal?  @db.Decimal(12, 4)
-  pisSituacaoTributaria      String?
-  pisAliquota                Decimal?  @db.Decimal(10, 4)
-  cofinsSituacaoTributaria   String?
-  cofinsAliquota             Decimal?  @db.Decimal(10, 4)
-  icmsModalidadeBC           String?
-  codClassificacaoTributaria String?
-  aliquotaIBSUF              Decimal?  @db.Decimal(10, 4)
-  aliquotaIBSMun             Decimal?  @db.Decimal(10, 4)
-  aliquotaCBS                Decimal?  @db.Decimal(10, 4)
-  fornecedores               Json?
   data                       Json?
-  createdAt                  DateTime  @default(now())
+  createdAt                  DateTime         @default(now())
   updatedAt                  DateTime
   deletedAt                  DateTime?
+  aliquotaCBS                Decimal?         @db.Decimal(10, 4)
+  aliquotaIBSMun             Decimal?         @db.Decimal(10, 4)
+  aliquotaIBSUF              Decimal?         @db.Decimal(10, 4)
+  cest                       String?
+  cfop                       String?
+  codClassificacaoTributaria String?
+  code                       String?
+  cofinsAliquota             Decimal?         @db.Decimal(10, 4)
+  cofinsSituacaoTributaria   String?
+  csosn                      String?
+  currentStock               Decimal?         @db.Decimal(12, 4)
+  customerBarcode            String?
+  dangerousGoodsClass        String?
+  fatorConversao             Decimal?         @db.Decimal(12, 4)
+  fornecedores               Json?
+  group                      String?
+  gs1Code                    String?
+  icmsAliquota               Decimal?         @db.Decimal(10, 4)
+  icmsModalidadeBC           String?
+  ipiAliquota                Decimal?         @db.Decimal(10, 4)
+  ipiCodEnquadramento        String?
+  ipiSituacaoTributaria      String?
+  localizacaoEstoque         String?
+  lote                       String?
+  maxStock                   Decimal?         @db.Decimal(12, 4)
+  minStock                   Decimal?         @db.Decimal(12, 4)
+  mvaAliquota                Decimal?         @db.Decimal(10, 4)
+  ncm                        String?
+  obsTecnicas                String?
+  origem                     String?
+  pisAliquota                Decimal?         @db.Decimal(10, 4)
+  pisSituacaoTributaria      String?
+  sku                        String?
+  sujeitoIcmsSt              Boolean?
+  tipoMaterial               String?
+  unidadeConsumo             String?
+  unidadeTributavel          String?
+  validadeDias               Int?
+  valorIcmsSt                Decimal?         @db.Decimal(12, 4)
+  weight                     Decimal?         @db.Decimal(12, 4)
   inventory_lots             inventory_lots[]
 
   @@index([companyId, deletedAt], map: "RawMaterial_companyId_deletedAt_idx")
@@ -608,16 +607,16 @@ model raw_materials {
 }
 
 model sales {
-  id        String                @id(map: "Sale_pkey")
-  companyId String
-  data      Json?
-  createdAt DateTime              @default(now())
-  updatedAt DateTime
-  deletedAt DateTime?
+  id               String                   @id(map: "Sale_pkey")
+  companyId        String
+  data             Json?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime
+  deletedAt        DateTime?
+  items            sale_items[]
+  history          sale_status_history[]
   fiscal_documents sales_fiscal_documents[]
-  nfse_documents sales_nfse_documents[]
-  items     sale_items[]
-  history   sale_status_history[]
+  nfse_documents   sales_nfse_documents[]
 
   @@index([companyId, deletedAt], map: "Sale_companyId_deletedAt_idx")
   @@index([companyId], map: "Sale_companyId_idx")
@@ -644,10 +643,10 @@ model sale_items {
   companies       companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
   sales           sales     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "sale_items_company_id_idx")
-  @@index([sale_id], map: "sale_items_sale_id_idx")
-  @@index([product_id], map: "sale_items_product_id_idx")
-  @@index([raw_material_id], map: "sale_items_raw_material_id_idx")
+  @@index([company_id])
+  @@index([sale_id])
+  @@index([product_id])
+  @@index([raw_material_id])
 }
 
 model sale_status_history {
@@ -665,67 +664,67 @@ model sale_status_history {
   companies   companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
   sales       sales     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "sale_status_history_company_id_idx")
-  @@index([sale_id], map: "sale_status_history_sale_id_idx")
-  @@index([to_status], map: "sale_status_history_to_status_idx")
-  @@index([changed_at], map: "sale_status_history_changed_at_idx")
+  @@index([company_id])
+  @@index([sale_id])
+  @@index([to_status])
+  @@index([changed_at])
 }
 
 model sales_fiscal_documents {
-  id                   String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  id                   String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id           String
   sale_id              String?
-  document_type        String               @default("NFE")
+  document_type        String                           @default("NFE")
   document_number      String?
   series               String?
   access_key           String?
   status               String?
-  issue_date           DateTime?            @db.Timestamptz(6)
-  authorization_date   DateTime?            @db.Timestamptz(6)
-  cancellation_date    DateTime?            @db.Timestamptz(6)
+  issue_date           DateTime?                        @db.Timestamptz(6)
+  authorization_date   DateTime?                        @db.Timestamptz(6)
+  cancellation_date    DateTime?                        @db.Timestamptz(6)
   sefaz_status_code    String?
   sefaz_status_message String?
   protocol_number      String?
   xml_url              String?
   danfe_url            String?
   data                 Json?
-  created_at           DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime             @default(now()) @db.Timestamptz(6)
-  companies            companies            @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  sales                sales?               @relation(fields: [sale_id], references: [id], onDelete: SetNull)
-  events               sales_fiscal_events[]
+  created_at           DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                         @default(now()) @db.Timestamptz(6)
   receivable_titles    accounting_accounts_receivable[]
+  companies            companies                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  sales                sales?                           @relation(fields: [sale_id], references: [id])
+  events               sales_fiscal_events[]
 
   @@unique([company_id, access_key], map: "sales_fiscal_documents_company_access_key_key")
-  @@index([company_id], map: "sales_fiscal_documents_company_id_idx")
-  @@index([sale_id], map: "sales_fiscal_documents_sale_id_idx")
-  @@index([document_type], map: "sales_fiscal_documents_document_type_idx")
-  @@index([status], map: "sales_fiscal_documents_status_idx")
+  @@index([company_id])
+  @@index([sale_id])
+  @@index([document_type])
+  @@index([status])
 }
 
 model sales_fiscal_events {
-  id                 String                  @id @default(dbgenerated("(gen_random_uuid())::text"))
+  id                 String                 @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id         String
   fiscal_document_id String
   event_type         String
   event_status       String?
-  event_date         DateTime?               @db.Timestamptz(6)
+  event_date         DateTime?              @db.Timestamptz(6)
   protocol_number    String?
   reason             String?
   data               Json?
-  created_at         DateTime                @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime                @default(now()) @db.Timestamptz(6)
-  companies          companies               @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  fiscal_documents   sales_fiscal_documents  @relation(fields: [fiscal_document_id], references: [id], onDelete: Cascade)
+  created_at         DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime               @default(now()) @db.Timestamptz(6)
+  companies          companies              @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  fiscal_documents   sales_fiscal_documents @relation(fields: [fiscal_document_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "sales_fiscal_events_company_id_idx")
+  @@index([company_id])
   @@index([fiscal_document_id], map: "sales_fiscal_events_document_id_idx")
-  @@index([event_type], map: "sales_fiscal_events_event_type_idx")
-  @@index([event_date], map: "sales_fiscal_events_event_date_idx")
+  @@index([event_type])
+  @@index([event_date])
 }
 
 model sales_nfse_documents {
-  id                   String             @id @default(dbgenerated("(gen_random_uuid())::text"))
+  id                   String              @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id           String
   sale_id              String?
   lot_number           String?
@@ -736,24 +735,24 @@ model sales_nfse_documents {
   status               String?
   provider_status_code String?
   provider_message     String?
-  issue_date           DateTime?          @db.Timestamptz(6)
-  authorization_date   DateTime?          @db.Timestamptz(6)
-  cancellation_date    DateTime?          @db.Timestamptz(6)
+  issue_date           DateTime?           @db.Timestamptz(6)
+  authorization_date   DateTime?           @db.Timestamptz(6)
+  cancellation_date    DateTime?           @db.Timestamptz(6)
   protocol_number      String?
   xml_url              String?
   pdf_url              String?
   data                 Json?
-  created_at           DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime           @default(now()) @db.Timestamptz(6)
-  companies            companies          @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  sales                sales?             @relation(fields: [sale_id], references: [id], onDelete: SetNull)
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime            @default(now()) @db.Timestamptz(6)
+  companies            companies           @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  sales                sales?              @relation(fields: [sale_id], references: [id])
   events               sales_nfse_events[]
 
   @@unique([company_id, verification_code], map: "sales_nfse_documents_company_verification_code_key")
-  @@index([company_id], map: "sales_nfse_documents_company_id_idx")
-  @@index([sale_id], map: "sales_nfse_documents_sale_id_idx")
-  @@index([lot_number], map: "sales_nfse_documents_lot_number_idx")
-  @@index([status], map: "sales_nfse_documents_status_idx")
+  @@index([company_id])
+  @@index([sale_id])
+  @@index([lot_number])
+  @@index([status])
 }
 
 model sales_nfse_events {
@@ -771,65 +770,65 @@ model sales_nfse_events {
   companies        companies            @relation(fields: [company_id], references: [id], onDelete: Cascade)
   nfse_documents   sales_nfse_documents @relation(fields: [nfse_document_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "sales_nfse_events_company_id_idx")
+  @@index([company_id])
   @@index([nfse_document_id], map: "sales_nfse_events_document_id_idx")
-  @@index([event_type], map: "sales_nfse_events_event_type_idx")
-  @@index([event_date], map: "sales_nfse_events_event_date_idx")
+  @@index([event_type])
+  @@index([event_date])
 }
 
 model accounting_fiscal_periods {
-  id                 String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  id                 String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id         String
   period_code        String
   year               Int
   month              Int?
   quarter            Int?
-  start_date         DateTime                      @db.Timestamptz(6)
-  end_date           DateTime                      @db.Timestamptz(6)
-  status             String?                       @default("OPEN")
-  closed_at          DateTime?                     @db.Timestamptz(6)
+  start_date         DateTime                         @db.Timestamptz(6)
+  end_date           DateTime                         @db.Timestamptz(6)
+  status             String?                          @default("OPEN")
+  closed_at          DateTime?                        @db.Timestamptz(6)
   notes              String?
   data               Json?
-  created_at         DateTime                      @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime                      @default(now()) @db.Timestamptz(6)
-  companies          companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  journal_entries    accounting_journal_entries[]
-  receivable_titles  accounting_accounts_receivable[]
+  created_at         DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                         @default(now()) @db.Timestamptz(6)
   payable_titles     accounting_accounts_payable[]
+  receivable_titles  accounting_accounts_receivable[]
+  companies          companies                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  journal_entries    accounting_journal_entries[]
   tax_apportionments fiscal_tax_apportionments[]
 
   @@unique([company_id, period_code], map: "accounting_fiscal_periods_company_period_code_key")
-  @@index([company_id], map: "accounting_fiscal_periods_company_id_idx")
-  @@index([year, month], map: "accounting_fiscal_periods_year_month_idx")
-  @@index([status], map: "accounting_fiscal_periods_status_idx")
+  @@index([company_id])
+  @@index([year, month])
+  @@index([status])
 }
 
 model accounting_chart_accounts {
-  id                   String                            @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id           String
-  code                 String
-  name                 String
-  account_type         String
-  account_group        String?
-  parent_account_id    String?
-  level                Int?
-  is_postable          Boolean?                          @default(true)
-  is_active            Boolean?                          @default(true)
-  metadata             Json?
-  created_at           DateTime                          @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime                          @default(now()) @db.Timestamptz(6)
-  companies            companies                         @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  parent_account       accounting_chart_accounts?        @relation("accounting_chart_accounts_hierarchy", fields: [parent_account_id], references: [id], onDelete: SetNull)
-  child_accounts       accounting_chart_accounts[]       @relation("accounting_chart_accounts_hierarchy")
-  journal_entry_lines  accounting_journal_entry_lines[]
-  receivable_titles    accounting_accounts_receivable[]
-  payable_titles       accounting_accounts_payable[]
+  id                  String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  code                String
+  name                String
+  account_type        String
+  account_group       String?
+  parent_account_id   String?
+  level               Int?
+  is_postable         Boolean?                         @default(true)
+  is_active           Boolean?                         @default(true)
+  metadata            Json?
+  created_at          DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                         @default(now()) @db.Timestamptz(6)
+  payable_titles      accounting_accounts_payable[]
+  receivable_titles   accounting_accounts_receivable[]
+  companies           companies                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  parent_account      accounting_chart_accounts?       @relation("accounting_chart_accounts_hierarchy", fields: [parent_account_id], references: [id])
+  child_accounts      accounting_chart_accounts[]      @relation("accounting_chart_accounts_hierarchy")
+  journal_entry_lines accounting_journal_entry_lines[]
 
   @@unique([company_id, code], map: "accounting_chart_accounts_company_code_key")
-  @@index([company_id], map: "accounting_chart_accounts_company_id_idx")
-  @@index([account_type], map: "accounting_chart_accounts_account_type_idx")
-  @@index([parent_account_id], map: "accounting_chart_accounts_parent_account_id_idx")
-  @@index([is_active], map: "accounting_chart_accounts_is_active_idx")
+  @@index([company_id])
+  @@index([account_type])
+  @@index([parent_account_id])
+  @@index([is_active])
 }
 
 model accounting_cost_centers {
@@ -843,185 +842,185 @@ model accounting_cost_centers {
   created_at            DateTime                         @default(now()) @db.Timestamptz(6)
   updated_at            DateTime                         @default(now()) @db.Timestamptz(6)
   companies             companies                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  parent_cost_center    accounting_cost_centers?         @relation("accounting_cost_centers_hierarchy", fields: [parent_cost_center_id], references: [id], onDelete: SetNull)
+  parent_cost_center    accounting_cost_centers?         @relation("accounting_cost_centers_hierarchy", fields: [parent_cost_center_id], references: [id])
   child_cost_centers    accounting_cost_centers[]        @relation("accounting_cost_centers_hierarchy")
   journal_entries       accounting_journal_entries[]
   journal_entry_lines   accounting_journal_entry_lines[]
 
   @@unique([company_id, code], map: "accounting_cost_centers_company_code_key")
-  @@index([company_id], map: "accounting_cost_centers_company_id_idx")
-  @@index([parent_cost_center_id], map: "accounting_cost_centers_parent_cost_center_id_idx")
-  @@index([is_active], map: "accounting_cost_centers_is_active_idx")
+  @@index([company_id])
+  @@index([parent_cost_center_id])
+  @@index([is_active])
 }
 
 model accounting_journal_entries {
-  id                 String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id         String
-  entry_number       String
-  entry_date         DateTime                         @db.Timestamptz(6)
-  description        String?
-  status             String?                          @default("DRAFT")
-  source_module      String?
-  source_id          String?
-  fiscal_period_id   String?
-  cost_center_id     String?
-  total_debit        Decimal                          @default(0) @db.Decimal(14, 4)
-  total_credit       Decimal                          @default(0) @db.Decimal(14, 4)
-  posted_at          DateTime?                        @db.Timestamptz(6)
-  metadata           Json?
-  created_at         DateTime                         @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime                         @default(now()) @db.Timestamptz(6)
-  companies          companies                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  fiscal_periods     accounting_fiscal_periods?       @relation(fields: [fiscal_period_id], references: [id], onDelete: SetNull)
-  cost_centers       accounting_cost_centers?         @relation(fields: [cost_center_id], references: [id], onDelete: SetNull)
-  lines              accounting_journal_entry_lines[]
+  id               String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id       String
+  entry_number     String
+  entry_date       DateTime                         @db.Timestamptz(6)
+  description      String?
+  status           String?                          @default("DRAFT")
+  source_module    String?
+  source_id        String?
+  fiscal_period_id String?
+  cost_center_id   String?
+  total_debit      Decimal                          @default(0) @db.Decimal(14, 4)
+  total_credit     Decimal                          @default(0) @db.Decimal(14, 4)
+  posted_at        DateTime?                        @db.Timestamptz(6)
+  metadata         Json?
+  created_at       DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime                         @default(now()) @db.Timestamptz(6)
+  companies        companies                        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  cost_centers     accounting_cost_centers?         @relation(fields: [cost_center_id], references: [id])
+  fiscal_periods   accounting_fiscal_periods?       @relation(fields: [fiscal_period_id], references: [id])
+  lines            accounting_journal_entry_lines[]
 
   @@unique([company_id, entry_number], map: "accounting_journal_entries_company_entry_number_key")
-  @@index([company_id], map: "accounting_journal_entries_company_id_idx")
-  @@index([entry_date], map: "accounting_journal_entries_entry_date_idx")
-  @@index([status], map: "accounting_journal_entries_status_idx")
+  @@index([company_id])
+  @@index([entry_date])
+  @@index([status])
   @@index([source_module, source_id], map: "accounting_journal_entries_source_idx")
-  @@index([fiscal_period_id], map: "accounting_journal_entries_fiscal_period_id_idx")
+  @@index([fiscal_period_id])
 }
 
 model accounting_journal_entry_lines {
-  id                 String                          @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id         String
-  journal_entry_id   String
-  account_id         String
-  cost_center_id     String?
-  line_number        Int
-  description        String?
-  debit_amount       Decimal                         @default(0) @db.Decimal(14, 4)
-  credit_amount      Decimal                         @default(0) @db.Decimal(14, 4)
-  reference_type     String?
-  reference_id       String?
-  metadata           Json?
-  created_at         DateTime                        @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime                        @default(now()) @db.Timestamptz(6)
-  companies          companies                       @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  journal_entries    accounting_journal_entries      @relation(fields: [journal_entry_id], references: [id], onDelete: Cascade)
-  chart_accounts     accounting_chart_accounts       @relation(fields: [account_id], references: [id], onDelete: Restrict)
-  cost_centers       accounting_cost_centers?        @relation(fields: [cost_center_id], references: [id], onDelete: SetNull)
+  id               String                     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id       String
+  journal_entry_id String
+  account_id       String
+  cost_center_id   String?
+  line_number      Int
+  description      String?
+  debit_amount     Decimal                    @default(0) @db.Decimal(14, 4)
+  credit_amount    Decimal                    @default(0) @db.Decimal(14, 4)
+  reference_type   String?
+  reference_id     String?
+  metadata         Json?
+  created_at       DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime                   @default(now()) @db.Timestamptz(6)
+  chart_accounts   accounting_chart_accounts  @relation(fields: [account_id], references: [id])
+  companies        companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  cost_centers     accounting_cost_centers?   @relation(fields: [cost_center_id], references: [id])
+  journal_entries  accounting_journal_entries @relation(fields: [journal_entry_id], references: [id], onDelete: Cascade)
 
   @@unique([journal_entry_id, line_number], map: "accounting_journal_entry_lines_entry_line_number_key")
-  @@index([company_id], map: "accounting_journal_entry_lines_company_id_idx")
-  @@index([journal_entry_id], map: "accounting_journal_entry_lines_journal_entry_id_idx")
-  @@index([account_id], map: "accounting_journal_entry_lines_account_id_idx")
-  @@index([cost_center_id], map: "accounting_journal_entry_lines_cost_center_id_idx")
+  @@index([company_id])
+  @@index([journal_entry_id])
+  @@index([account_id])
+  @@index([cost_center_id])
 }
 
 model accounting_accounts_receivable {
-  id                  String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id          String
-  fiscal_period_id    String?
-  account_id          String?
-  fiscal_document_id  String?
-  document_number     String?
-  client_name         String?
-  issue_date          DateTime?                     @db.Timestamptz(6)
-  due_date            DateTime?                     @db.Timestamptz(6)
-  amount_original     Decimal                       @default(0) @db.Decimal(14, 4)
-  amount_paid         Decimal                       @default(0) @db.Decimal(14, 4)
-  amount_outstanding  Decimal                       @default(0) @db.Decimal(14, 4)
-  status              String?                       @default("OPEN")
-  source_module       String?
-  source_id           String?
-  paid_at             DateTime?                     @db.Timestamptz(6)
-  notes               String?
-  metadata            Json?
-  created_at          DateTime                      @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime                      @default(now()) @db.Timestamptz(6)
-  companies           companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  fiscal_periods      accounting_fiscal_periods?    @relation(fields: [fiscal_period_id], references: [id], onDelete: SetNull)
-  chart_accounts      accounting_chart_accounts?    @relation(fields: [account_id], references: [id], onDelete: SetNull)
-  fiscal_documents    sales_fiscal_documents?       @relation(fields: [fiscal_document_id], references: [id], onDelete: SetNull)
+  id                 String                     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id         String
+  fiscal_period_id   String?
+  account_id         String?
+  fiscal_document_id String?
+  document_number    String?
+  client_name        String?
+  issue_date         DateTime?                  @db.Timestamptz(6)
+  due_date           DateTime?                  @db.Timestamptz(6)
+  amount_original    Decimal                    @default(0) @db.Decimal(14, 4)
+  amount_paid        Decimal                    @default(0) @db.Decimal(14, 4)
+  amount_outstanding Decimal                    @default(0) @db.Decimal(14, 4)
+  status             String?                    @default("OPEN")
+  source_module      String?
+  source_id          String?
+  paid_at            DateTime?                  @db.Timestamptz(6)
+  notes              String?
+  metadata           Json?
+  created_at         DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                   @default(now()) @db.Timestamptz(6)
+  chart_accounts     accounting_chart_accounts? @relation(fields: [account_id], references: [id])
+  companies          companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  fiscal_documents   sales_fiscal_documents?    @relation(fields: [fiscal_document_id], references: [id])
+  fiscal_periods     accounting_fiscal_periods? @relation(fields: [fiscal_period_id], references: [id])
 
-  @@index([company_id], map: "accounting_accounts_receivable_company_id_idx")
-  @@index([fiscal_period_id], map: "accounting_accounts_receivable_fiscal_period_id_idx")
-  @@index([fiscal_document_id], map: "accounting_accounts_receivable_fiscal_document_id_idx")
-  @@index([due_date], map: "accounting_accounts_receivable_due_date_idx")
-  @@index([status], map: "accounting_accounts_receivable_status_idx")
+  @@index([company_id])
+  @@index([fiscal_period_id])
+  @@index([fiscal_document_id])
+  @@index([due_date])
+  @@index([status])
 }
 
 model accounting_accounts_payable {
-  id                  String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id          String
-  fiscal_period_id    String?
-  account_id          String?
-  document_number     String?
-  supplier_name       String?
-  issue_date          DateTime?                     @db.Timestamptz(6)
-  due_date            DateTime?                     @db.Timestamptz(6)
-  amount_original     Decimal                       @default(0) @db.Decimal(14, 4)
-  amount_paid         Decimal                       @default(0) @db.Decimal(14, 4)
-  amount_outstanding  Decimal                       @default(0) @db.Decimal(14, 4)
-  status              String?                       @default("OPEN")
-  source_module       String?
-  source_id           String?
-  paid_at             DateTime?                     @db.Timestamptz(6)
-  notes               String?
-  metadata            Json?
-  created_at          DateTime                      @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime                      @default(now()) @db.Timestamptz(6)
-  companies           companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  fiscal_periods      accounting_fiscal_periods?    @relation(fields: [fiscal_period_id], references: [id], onDelete: SetNull)
-  chart_accounts      accounting_chart_accounts?    @relation(fields: [account_id], references: [id], onDelete: SetNull)
+  id                 String                     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id         String
+  fiscal_period_id   String?
+  account_id         String?
+  document_number    String?
+  supplier_name      String?
+  issue_date         DateTime?                  @db.Timestamptz(6)
+  due_date           DateTime?                  @db.Timestamptz(6)
+  amount_original    Decimal                    @default(0) @db.Decimal(14, 4)
+  amount_paid        Decimal                    @default(0) @db.Decimal(14, 4)
+  amount_outstanding Decimal                    @default(0) @db.Decimal(14, 4)
+  status             String?                    @default("OPEN")
+  source_module      String?
+  source_id          String?
+  paid_at            DateTime?                  @db.Timestamptz(6)
+  notes              String?
+  metadata           Json?
+  created_at         DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                   @default(now()) @db.Timestamptz(6)
+  chart_accounts     accounting_chart_accounts? @relation(fields: [account_id], references: [id])
+  companies          companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  fiscal_periods     accounting_fiscal_periods? @relation(fields: [fiscal_period_id], references: [id])
 
-  @@index([company_id], map: "accounting_accounts_payable_company_id_idx")
-  @@index([fiscal_period_id], map: "accounting_accounts_payable_fiscal_period_id_idx")
-  @@index([due_date], map: "accounting_accounts_payable_due_date_idx")
-  @@index([status], map: "accounting_accounts_payable_status_idx")
+  @@index([company_id])
+  @@index([fiscal_period_id])
+  @@index([due_date])
+  @@index([status])
 }
 
 model fiscal_tax_apportionments {
-  id                 String                        @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id         String
-  fiscal_period_id   String
-  tax_type           String
-  tax_regime         String?
-  tax_base           Decimal?                      @db.Decimal(14, 4)
-  tax_rate           Decimal?                      @db.Decimal(10, 4)
-  debits_amount      Decimal?                      @db.Decimal(14, 4)
-  credits_amount     Decimal?                      @db.Decimal(14, 4)
-  amount_due         Decimal?                      @db.Decimal(14, 4)
-  due_date           DateTime?                     @db.Timestamptz(6)
-  status             String?                       @default("PENDING")
-  notes              String?
-  metadata           Json?
-  created_at         DateTime                      @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime                      @default(now()) @db.Timestamptz(6)
-  companies          companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  fiscal_periods     accounting_fiscal_periods     @relation(fields: [fiscal_period_id], references: [id], onDelete: Cascade)
+  id               String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id       String
+  fiscal_period_id String
+  tax_type         String
+  tax_regime       String?
+  tax_base         Decimal?                  @db.Decimal(14, 4)
+  tax_rate         Decimal?                  @db.Decimal(10, 4)
+  debits_amount    Decimal?                  @db.Decimal(14, 4)
+  credits_amount   Decimal?                  @db.Decimal(14, 4)
+  amount_due       Decimal?                  @db.Decimal(14, 4)
+  due_date         DateTime?                 @db.Timestamptz(6)
+  status           String?                   @default("PENDING")
+  notes            String?
+  metadata         Json?
+  created_at       DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime                  @default(now()) @db.Timestamptz(6)
+  companies        companies                 @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  fiscal_periods   accounting_fiscal_periods @relation(fields: [fiscal_period_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "fiscal_tax_apportionments_company_id_idx")
-  @@index([fiscal_period_id], map: "fiscal_tax_apportionments_fiscal_period_id_idx")
-  @@index([tax_type], map: "fiscal_tax_apportionments_tax_type_idx")
-  @@index([status], map: "fiscal_tax_apportionments_status_idx")
-  @@index([due_date], map: "fiscal_tax_apportionments_due_date_idx")
+  @@index([company_id])
+  @@index([fiscal_period_id])
+  @@index([tax_type])
+  @@index([status])
+  @@index([due_date])
 }
 
 model suppliers {
   id                String    @id(map: "Supplier_pkey")
   companyId         String
   nome              String
-  nomeFantasia      String?
-  cnpj              String?
-  inscricaoEstadual String?
-  tipoFornecedor    String?
-  active            Boolean?  @default(true)
-  observacoes       String?
-  condicaoPagamento String?
-  moedaPadrao       String?
-  prazoEntrega      Int?
-  avaliacao         Int?
-  dadosBancarios    Json?
-  contacts          Json?
-  endereco          Json?
   data              Json?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime
   deletedAt         DateTime?
+  active            Boolean?  @default(true)
+  avaliacao         Int?
+  cnpj              String?
+  condicaoPagamento String?
+  contacts          Json?
+  dadosBancarios    Json?
+  endereco          Json?
+  inscricaoEstadual String?
+  moedaPadrao       String?
+  nomeFantasia      String?
+  observacoes       String?
+  prazoEntrega      Int?
+  tipoFornecedor    String?
 
   @@index([companyId, deletedAt], map: "Supplier_companyId_deletedAt_idx")
   @@index([companyId], map: "Supplier_companyId_idx")
@@ -1076,12 +1075,12 @@ model inventory_warehouse_layouts {
   metadata      Json?
   created_at    DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime                  @default(now()) @db.Timestamptz(6)
-  companies     companies                 @relation(fields: [company_id], references: [id], onDelete: Cascade)
   storage_zones inventory_storage_zones[]
+  companies     companies                 @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@unique([company_id, code], map: "inventory_warehouse_layouts_company_code_key")
-  @@index([company_id], map: "inventory_warehouse_layouts_company_id_idx")
-  @@index([status], map: "inventory_warehouse_layouts_status_idx")
+  @@index([company_id])
+  @@index([status])
 }
 
 model inventory_storage_zones {
@@ -1099,14 +1098,14 @@ model inventory_storage_zones {
   metadata                    Json?
   created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
   updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  storage_positions           inventory_storage_positions[]
   companies                   companies                     @relation(fields: [company_id], references: [id], onDelete: Cascade)
   inventory_warehouse_layouts inventory_warehouse_layouts   @relation(fields: [warehouse_layout_id], references: [id], onDelete: Cascade)
-  storage_positions           inventory_storage_positions[]
 
   @@unique([company_id, warehouse_layout_id, code], map: "inventory_storage_zones_company_layout_code_key")
-  @@index([company_id], map: "inventory_storage_zones_company_id_idx")
+  @@index([company_id])
   @@index([warehouse_layout_id], map: "inventory_storage_zones_layout_id_idx")
-  @@index([status], map: "inventory_storage_zones_status_idx")
+  @@index([status])
 }
 
 model inventory_storage_positions {
@@ -1126,15 +1125,15 @@ model inventory_storage_positions {
   metadata                Json?
   created_at              DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at              DateTime                   @default(now()) @db.Timestamptz(6)
+  reservations            inventory_reservations[]
+  lot_balances            inventory_stock_balances[]
   companies               companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
   inventory_storage_zones inventory_storage_zones    @relation(fields: [zone_id], references: [id], onDelete: Cascade)
-  lot_balances            inventory_stock_balances[]
-  reservations            inventory_reservations[]
 
   @@unique([company_id, zone_id, code], map: "inventory_storage_positions_company_zone_code_key")
-  @@index([company_id], map: "inventory_storage_positions_company_id_idx")
-  @@index([zone_id], map: "inventory_storage_positions_zone_id_idx")
-  @@index([status], map: "inventory_storage_positions_status_idx")
+  @@index([company_id])
+  @@index([zone_id])
+  @@index([status])
 }
 
 model inventory_lots {
@@ -1153,18 +1152,18 @@ model inventory_lots {
   metadata         Json?
   created_at       DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at       DateTime                   @default(now()) @db.Timestamptz(6)
-  companies        companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  raw_materials    raw_materials?              @relation(fields: [raw_material_id], references: [id], onDelete: SetNull)
-  lot_balances     inventory_stock_balances[]
   lot_movements    inventory_lot_movements[]
+  companies        companies                  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  raw_materials    raw_materials?             @relation(fields: [raw_material_id], references: [id])
   reservations     inventory_reservations[]
+  lot_balances     inventory_stock_balances[]
 
   @@unique([company_id, lot_code], map: "inventory_lots_company_lot_code_key")
-  @@index([company_id], map: "inventory_lots_company_id_idx")
-  @@index([item_type], map: "inventory_lots_item_type_idx")
-  @@index([raw_material_id], map: "inventory_lots_raw_material_id_idx")
-  @@index([quality_status], map: "inventory_lots_quality_status_idx")
-  @@index([expiration_date], map: "inventory_lots_expiration_date_idx")
+  @@index([company_id])
+  @@index([item_type])
+  @@index([raw_material_id])
+  @@index([quality_status])
+  @@index([expiration_date])
 }
 
 model inventory_stock_balances {
@@ -1184,8 +1183,8 @@ model inventory_stock_balances {
   storage_positions   inventory_storage_positions @relation(fields: [storage_position_id], references: [id], onDelete: Cascade)
 
   @@unique([company_id, lot_id, storage_position_id], map: "inventory_stock_balances_company_lot_position_key")
-  @@index([company_id], map: "inventory_stock_balances_company_id_idx")
-  @@index([lot_id], map: "inventory_stock_balances_lot_id_idx")
+  @@index([company_id])
+  @@index([lot_id])
   @@index([storage_position_id], map: "inventory_stock_balances_position_id_idx")
 }
 
@@ -1210,12 +1209,12 @@ model inventory_lot_movements {
   companies               companies      @relation(fields: [company_id], references: [id], onDelete: Cascade)
   inventory_lots          inventory_lots @relation(fields: [lot_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "inventory_lot_movements_company_id_idx")
-  @@index([lot_id], map: "inventory_lot_movements_lot_id_idx")
-  @@index([movement_type], map: "inventory_lot_movements_movement_type_idx")
-  @@index([movement_date], map: "inventory_lot_movements_movement_date_idx")
-  @@index([source_position_id], map: "inventory_lot_movements_source_position_id_idx")
-  @@index([destination_position_id], map: "inventory_lot_movements_destination_position_id_idx")
+  @@index([company_id])
+  @@index([lot_id])
+  @@index([movement_type])
+  @@index([movement_date])
+  @@index([source_position_id])
+  @@index([destination_position_id])
 }
 
 model inventory_reservations {
@@ -1240,11 +1239,11 @@ model inventory_reservations {
   inventory_lots      inventory_lots              @relation(fields: [lot_id], references: [id], onDelete: Cascade)
   storage_positions   inventory_storage_positions @relation(fields: [storage_position_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "inventory_reservations_company_id_idx")
-  @@index([lot_id], map: "inventory_reservations_lot_id_idx")
+  @@index([company_id])
+  @@index([lot_id])
   @@index([storage_position_id], map: "inventory_reservations_position_id_idx")
-  @@index([status], map: "inventory_reservations_status_idx")
-  @@index([expires_at], map: "inventory_reservations_expires_at_idx")
+  @@index([status])
+  @@index([expires_at])
 }
 
 model calibrations {
@@ -1283,21 +1282,21 @@ model quality_complaints {
 model purchase_requests {
   id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id          String
-  numero_solicitacao  String?
-  solicitante_nome    String?
-  proveedor_id        String?
-  tipo                String?
-  justificativa       String?
-  prioridade          String?
-  data_necessidade    DateTime? @db.Timestamptz(6)
-  moneda              String?
-  produtos            Json?
-  status              String?
-  estado              String?
-  ordem_compra_numero String?
   data                Json?
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  data_necessidade    DateTime? @db.Timestamptz(6)
+  estado              String?
+  justificativa       String?
+  moneda              String?
+  numero_solicitacao  String?
+  ordem_compra_numero String?
+  prioridade          String?
+  produtos            Json?
+  proveedor_id        String?
+  solicitante_nome    String?
+  status              String?
+  tipo                String?
   companies           companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
@@ -1372,9 +1371,9 @@ model hr_vacations {
   updated_at    DateTime  @default(now()) @db.Timestamptz(6)
   companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_vacations_company_id_idx")
-  @@index([employee_id], map: "hr_vacations_employee_id_idx")
-  @@index([start_date], map: "hr_vacations_start_date_idx")
+  @@index([company_id])
+  @@index([employee_id])
+  @@index([start_date])
 }
 
 model hr_attendance_records {
@@ -1390,9 +1389,9 @@ model hr_attendance_records {
   updated_at    DateTime  @default(now()) @db.Timestamptz(6)
   companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_attendance_records_company_id_idx")
-  @@index([employee_id], map: "hr_attendance_records_employee_id_idx")
-  @@index([date], map: "hr_attendance_records_date_idx")
+  @@index([company_id])
+  @@index([employee_id])
+  @@index([date])
 }
 
 model hr_epi_deliveries {
@@ -1408,9 +1407,9 @@ model hr_epi_deliveries {
   updated_at    DateTime  @default(now()) @db.Timestamptz(6)
   companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_epi_deliveries_company_id_idx")
-  @@index([employee_id], map: "hr_epi_deliveries_employee_id_idx")
-  @@index([delivery_date], map: "hr_epi_deliveries_delivery_date_idx")
+  @@index([company_id])
+  @@index([employee_id])
+  @@index([delivery_date])
 }
 
 model hr_work_accidents {
@@ -1429,9 +1428,9 @@ model hr_work_accidents {
   updated_at    DateTime  @default(now()) @db.Timestamptz(6)
   companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_work_accidents_company_id_idx")
-  @@index([employee_id], map: "hr_work_accidents_employee_id_idx")
-  @@index([accident_date], map: "hr_work_accidents_accident_date_idx")
+  @@index([company_id])
+  @@index([employee_id])
+  @@index([accident_date])
 }
 
 model hr_overtime_records {
@@ -1452,10 +1451,10 @@ model hr_overtime_records {
   updated_at    DateTime  @default(now()) @db.Timestamptz(6)
   companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_overtime_records_company_id_idx")
-  @@index([employee_id], map: "hr_overtime_records_employee_id_idx")
-  @@index([date], map: "hr_overtime_records_date_idx")
-  @@index([sector], map: "hr_overtime_records_sector_idx")
+  @@index([company_id])
+  @@index([employee_id])
+  @@index([date])
+  @@index([sector])
 }
 
 model hr_production_coverages {
@@ -1475,9 +1474,9 @@ model hr_production_coverages {
   updated_at       DateTime  @default(now()) @db.Timestamptz(6)
   companies        companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_production_coverages_company_id_idx")
-  @@index([date], map: "hr_production_coverages_date_idx")
-  @@index([sector], map: "hr_production_coverages_sector_idx")
+  @@index([company_id])
+  @@index([date])
+  @@index([sector])
   @@index([critical_role], map: "hr_production_coverages_role_idx")
 }
 
@@ -1497,45 +1496,45 @@ model hr_training_matrix_entries {
   updated_at       DateTime  @default(now()) @db.Timestamptz(6)
   companies        companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_training_matrix_entries_company_id_idx")
-  @@index([employee_id], map: "hr_training_matrix_entries_employee_id_idx")
-  @@index([sector], map: "hr_training_matrix_entries_sector_idx")
+  @@index([company_id])
+  @@index([employee_id])
+  @@index([sector])
   @@index([critical_role], map: "hr_training_matrix_entries_role_idx")
   @@index([expires_at], map: "hr_training_matrix_entries_expires_idx")
 }
 
 model hr_benefits {
-  id               String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id       String
-  name             String
-  category         String?
-  provider         String?
-  audience         String?
-  status           String?   @default("Ativo")
-  monthly_cost     Decimal?  @db.Decimal(12, 2)
-  enrolled_count   Int?      @default(0)
-  satisfaction     Decimal?  @db.Decimal(4, 2)
-  coverage_goal    Int?
-  renewal_date     DateTime? @db.Timestamptz(6)
-  tags             String[]  @default([])
-  color            String?
-  priority         String?
-  last_reviewed_at DateTime? @db.Timestamptz(6)
-  notes            String?
-  data             Json?
-  created_at       DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
-  companies        companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  hr_benefit_services hr_benefit_services[]
+  id                  String                @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  name                String
+  category            String?
+  provider            String?
+  audience            String?
+  status              String?               @default("Ativo")
+  monthly_cost        Decimal?              @db.Decimal(12, 2)
+  enrolled_count      Int?                  @default(0)
+  satisfaction        Decimal?              @db.Decimal(4, 2)
+  coverage_goal       Int?
+  renewal_date        DateTime?             @db.Timestamptz(6)
+  tags                String[]              @default([])
+  color               String?
+  priority            String?
+  last_reviewed_at    DateTime?             @db.Timestamptz(6)
+  notes               String?
+  data                Json?
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
   hr_benefit_controls hr_benefit_controls[]
+  hr_benefit_services hr_benefit_services[]
+  companies           companies             @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_benefits_company_id_idx")
-  @@index([status], map: "hr_benefits_status_idx")
-  @@index([renewal_date], map: "hr_benefits_renewal_date_idx")
+  @@index([company_id])
+  @@index([status])
+  @@index([renewal_date])
 }
 
 model hr_benefit_services {
-  id               String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  id               String       @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id       String
   benefit_id       String?
   employee_id      String?
@@ -1545,52 +1544,52 @@ model hr_benefit_services {
   audience         String?
   owner            String?
   service_kind     String?
-  priority         String?   @default("Normal")
-  status           String?   @default("Aguardando RH")
-  start_date       DateTime? @db.Timestamptz(6)
-  end_date         DateTime? @db.Timestamptz(6)
-  submitted_at     DateTime? @db.Timestamptz(6)
-  scheduled_for    DateTime? @db.Timestamptz(6)
-  resolved_at      DateTime? @db.Timestamptz(6)
-  last_credit_date DateTime? @db.Timestamptz(6)
-  next_credit_date DateTime? @db.Timestamptz(6)
-  credit_amount    Decimal?  @db.Decimal(12, 2)
+  priority         String?      @default("Normal")
+  status           String?      @default("Aguardando RH")
+  start_date       DateTime?    @db.Timestamptz(6)
+  end_date         DateTime?    @db.Timestamptz(6)
+  submitted_at     DateTime?    @db.Timestamptz(6)
+  scheduled_for    DateTime?    @db.Timestamptz(6)
+  resolved_at      DateTime?    @db.Timestamptz(6)
+  last_credit_date DateTime?    @db.Timestamptz(6)
+  next_credit_date DateTime?    @db.Timestamptz(6)
+  credit_amount    Decimal?     @db.Decimal(12, 2)
   notes            String?
   data             Json?
-  created_at       DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
-  companies        companies  @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  hr_benefits      hr_benefits? @relation(fields: [benefit_id], references: [id], onDelete: SetNull)
+  created_at       DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime     @default(now()) @db.Timestamptz(6)
+  hr_benefits      hr_benefits? @relation(fields: [benefit_id], references: [id])
+  companies        companies    @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_benefit_services_company_id_idx")
-  @@index([benefit_id], map: "hr_benefit_services_benefit_id_idx")
-  @@index([status], map: "hr_benefit_services_status_idx")
+  @@index([company_id])
+  @@index([benefit_id])
+  @@index([status])
   @@index([service_kind], map: "hr_benefit_services_kind_idx")
   @@index([submitted_at], map: "hr_benefit_services_submitted_idx")
 }
 
 model hr_benefit_controls {
-  id             String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  id             String       @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id     String
   benefit_id     String?
   control_type   String?
   scope          String?
   metric_label   String?
-  current_value  Decimal?  @db.Decimal(10, 2)
-  target_value   Decimal?  @db.Decimal(10, 2)
+  current_value  Decimal?     @db.Decimal(10, 2)
+  target_value   Decimal?     @db.Decimal(10, 2)
   unit           String?
   highlight      String?
   owner          String?
-  status         String?   @default("Ativo")
-  next_action_at DateTime? @db.Timestamptz(6)
+  status         String?      @default("Ativo")
+  next_action_at DateTime?    @db.Timestamptz(6)
   data           Json?
-  created_at     DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
-  companies      companies  @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  hr_benefits    hr_benefits? @relation(fields: [benefit_id], references: [id], onDelete: SetNull)
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime     @default(now()) @db.Timestamptz(6)
+  hr_benefits    hr_benefits? @relation(fields: [benefit_id], references: [id])
+  companies      companies    @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  @@index([company_id], map: "hr_benefit_controls_company_id_idx")
-  @@index([benefit_id], map: "hr_benefit_controls_benefit_id_idx")
-  @@index([control_type], map: "hr_benefit_controls_control_type_idx")
-  @@index([scope], map: "hr_benefit_controls_scope_idx")
+  @@index([company_id])
+  @@index([benefit_id])
+  @@index([control_type])
+  @@index([scope])
 }

@@ -104,6 +104,12 @@ export class WorkAccidentService {
     return date;
   }
 
+  /** Safely serialize a value for a PostgreSQL jsonb column via Prisma tagged templates. */
+  private toJsonb(value: any): string | null {
+    if (value === null || value === undefined) return null;
+    return typeof value === 'string' ? value : JSON.stringify(value);
+  }
+
   private resolveLimit(limit?: number, fallback = 200) {
     if (!Number.isFinite(limit as number)) {
       return fallback;
@@ -246,7 +252,7 @@ export class WorkAccidentService {
     const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
       `
         INSERT INTO work_accidents (id, company_id, data, created_at, updated_at)
-        VALUES (${randomUUID()}, ${companyId}, ${payload}, NOW(), NOW())
+        VALUES (${randomUUID()}, ${companyId}, ${this.toJsonb(payload)}::jsonb, NOW(), NOW())
         RETURNING *
       `;
     return this.normalizeRow(rows[0]);
@@ -256,7 +262,7 @@ export class WorkAccidentService {
     const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
       `
         UPDATE work_accidents
-        SET data = ${payload}, updated_at = NOW()
+        SET data = ${this.toJsonb(payload)}::jsonb, updated_at = NOW()
         WHERE id = ${id}
           AND company_id = ${companyId}
           AND COALESCE(data->>'recordType', 'accident') = ${recordType}
@@ -317,7 +323,7 @@ export class WorkAccidentService {
             ${this.toDateOrNull(payload.endDate)},
             ${payload.status ?? null},
             ${payload.notes ?? null},
-            ${payload},
+            ${this.toJsonb(payload)}::jsonb,
             NOW(),
             NOW()
           )
@@ -339,7 +345,7 @@ export class WorkAccidentService {
             ${this.toDateOrNull(payload.date)},
             ${payload.status ?? null},
             ${payload.reason ?? null},
-            ${payload},
+            ${this.toJsonb(payload)}::jsonb,
             NOW(),
             NOW()
           )
@@ -366,7 +372,7 @@ export class WorkAccidentService {
             ${this.toDecimal(payload.hours)},
             ${payload.approver ?? null},
             ${payload.status ?? null},
-            ${payload},
+            ${this.toJsonb(payload)}::jsonb,
             NOW(),
             NOW()
           )
@@ -392,7 +398,7 @@ export class WorkAccidentService {
             ${this.toDecimal(payload.coveragePercent)},
             ${payload.status ?? null},
             ${payload.notes ?? null},
-            ${payload},
+            ${this.toJsonb(payload)}::jsonb,
             NOW(),
             NOW()
           )
@@ -417,7 +423,7 @@ export class WorkAccidentService {
             ${payload.status ?? null},
             ${this.toDateOrNull(payload.lastTrainingAt)},
             ${this.toDateOrNull(payload.expiresAt)},
-            ${payload},
+            ${this.toJsonb(payload)}::jsonb,
             NOW(),
             NOW()
           )
@@ -437,9 +443,9 @@ export class WorkAccidentService {
             ${payload.employeeId ?? null},
             ${payload.employeeName ?? null},
             ${this.toDateOrNull(payload.deliveryDate)},
-            ${payload.items ?? null},
+            ${this.toJsonb(payload.items)}::jsonb,
             ${payload.notes ?? null},
-            ${payload},
+            ${this.toJsonb(payload)}::jsonb,
             NOW(),
             NOW()
           )
@@ -463,7 +469,7 @@ export class WorkAccidentService {
           ${payload.status ?? null},
           ${payload.description ?? null},
           ${payload.actionsTaken ?? null},
-          ${payload},
+          ${this.toJsonb(payload)}::jsonb,
           NOW(),
           NOW()
         )
@@ -484,7 +490,7 @@ export class WorkAccidentService {
             end_date = ${this.toDateOrNull(payload.endDate)},
             status = ${payload.status ?? null},
             notes = ${payload.notes ?? null},
-            data = ${payload},
+            data = ${this.toJsonb(payload)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -503,7 +509,7 @@ export class WorkAccidentService {
             date = ${this.toDateOrNull(payload.date)},
             status = ${payload.status ?? null},
             reason = ${payload.reason ?? null},
-            data = ${payload},
+            data = ${this.toJsonb(payload)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -527,7 +533,7 @@ export class WorkAccidentService {
             hours = ${this.toDecimal(payload.hours)},
             approver = ${payload.approver ?? null},
             status = ${payload.status ?? null},
-            data = ${payload},
+            data = ${this.toJsonb(payload)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -550,7 +556,7 @@ export class WorkAccidentService {
             coverage_percent = ${this.toDecimal(payload.coveragePercent)},
             status = ${payload.status ?? null},
             notes = ${payload.notes ?? null},
-            data = ${payload},
+            data = ${this.toJsonb(payload)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -572,7 +578,7 @@ export class WorkAccidentService {
             status = ${payload.status ?? null},
             last_training_at = ${this.toDateOrNull(payload.lastTrainingAt)},
             expires_at = ${this.toDateOrNull(payload.expiresAt)},
-            data = ${payload},
+            data = ${this.toJsonb(payload)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -589,9 +595,9 @@ export class WorkAccidentService {
             employee_id = ${payload.employeeId ?? null},
             employee_name = ${payload.employeeName ?? null},
             delivery_date = ${this.toDateOrNull(payload.deliveryDate)},
-            items = ${payload.items ?? null},
+            items = ${this.toJsonb(payload.items)}::jsonb,
             notes = ${payload.notes ?? null},
-            data = ${payload},
+            data = ${this.toJsonb(payload)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -612,7 +618,7 @@ export class WorkAccidentService {
           status = ${payload.status ?? null},
           description = ${payload.description ?? null},
           actions_taken = ${payload.actionsTaken ?? null},
-          data = ${payload},
+          data = ${this.toJsonb(payload)}::jsonb,
           updated_at = NOW()
         WHERE id = ${id} AND company_id = ${companyId}
         RETURNING *
