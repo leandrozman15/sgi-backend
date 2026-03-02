@@ -479,18 +479,25 @@ export class WorkAccidentService {
   }
 
   private async updateInTypedTable(table: string, id: string, payload: Record<string, any>, companyId: string) {
+    // Fetch existing record to merge with partial payload (prevents wiping fields on partial updates like status-only changes)
+    const existing = await this.getFromTypedTable(table, id, companyId);
+    if (!existing) throw new NotFoundException('Registro não encontrado');
+
+    // Merge: existing data → incoming payload (incoming wins)
+    const merged = { ...existing, ...payload };
+
     if (table === 'hr_vacations') {
       const rows = await this.prisma.$queryRaw<Array<Record<string, any>>>
         `
           UPDATE hr_vacations
           SET
-            employee_id = ${payload.employeeId ?? null},
-            employee_name = ${payload.employeeName ?? null},
-            start_date = ${this.toDateOrNull(payload.startDate)},
-            end_date = ${this.toDateOrNull(payload.endDate)},
-            status = ${payload.status ?? null},
-            notes = ${payload.notes ?? null},
-            data = ${this.toJsonb(payload)}::jsonb,
+            employee_id = ${merged.employeeId ?? null},
+            employee_name = ${merged.employeeName ?? null},
+            start_date = ${this.toDateOrNull(merged.startDate)},
+            end_date = ${this.toDateOrNull(merged.endDate)},
+            status = ${merged.status ?? null},
+            notes = ${merged.notes ?? null},
+            data = ${this.toJsonb(merged)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -504,12 +511,12 @@ export class WorkAccidentService {
         `
           UPDATE hr_attendance_records
           SET
-            employee_id = ${payload.employeeId ?? null},
-            employee_name = ${payload.employeeName ?? null},
-            date = ${this.toDateOrNull(payload.date)},
-            status = ${payload.status ?? null},
-            reason = ${payload.reason ?? null},
-            data = ${this.toJsonb(payload)}::jsonb,
+            employee_id = ${merged.employeeId ?? null},
+            employee_name = ${merged.employeeName ?? null},
+            date = ${this.toDateOrNull(merged.date)},
+            status = ${merged.status ?? null},
+            reason = ${merged.reason ?? null},
+            data = ${this.toJsonb(merged)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -523,17 +530,17 @@ export class WorkAccidentService {
         `
           UPDATE hr_overtime_records
           SET
-            employee_id = ${payload.employeeId ?? null},
-            employee_name = ${payload.employeeName ?? null},
-            date = ${this.toDateOrNull(payload.date)},
-            shift = ${payload.shift ?? null},
-            sector = ${payload.sector ?? null},
-            reason = ${payload.reason ?? null},
-            overtime_type = ${payload.type ?? payload.overtimeType ?? null},
-            hours = ${this.toDecimal(payload.hours)},
-            approver = ${payload.approver ?? null},
-            status = ${payload.status ?? null},
-            data = ${this.toJsonb(payload)}::jsonb,
+            employee_id = ${merged.employeeId ?? null},
+            employee_name = ${merged.employeeName ?? null},
+            date = ${this.toDateOrNull(merged.date)},
+            shift = ${merged.shift ?? null},
+            sector = ${merged.sector ?? null},
+            reason = ${merged.reason ?? null},
+            overtime_type = ${merged.type ?? merged.overtimeType ?? null},
+            hours = ${this.toDecimal(merged.hours)},
+            approver = ${merged.approver ?? null},
+            status = ${merged.status ?? null},
+            data = ${this.toJsonb(merged)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -547,16 +554,16 @@ export class WorkAccidentService {
         `
           UPDATE hr_production_coverages
           SET
-            date = ${this.toDateOrNull(payload.date)},
-            shift = ${payload.shift ?? null},
-            sector = ${payload.sector ?? null},
-            critical_role = ${payload.criticalRole ?? null},
-            min_required = ${payload.minRequired ?? null},
-            available_count = ${payload.availableCount ?? null},
-            coverage_percent = ${this.toDecimal(payload.coveragePercent)},
-            status = ${payload.status ?? null},
-            notes = ${payload.notes ?? null},
-            data = ${this.toJsonb(payload)}::jsonb,
+            date = ${this.toDateOrNull(merged.date)},
+            shift = ${merged.shift ?? null},
+            sector = ${merged.sector ?? null},
+            critical_role = ${merged.criticalRole ?? null},
+            min_required = ${merged.minRequired ?? null},
+            available_count = ${merged.availableCount ?? null},
+            coverage_percent = ${this.toDecimal(merged.coveragePercent)},
+            status = ${merged.status ?? null},
+            notes = ${merged.notes ?? null},
+            data = ${this.toJsonb(merged)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -570,15 +577,15 @@ export class WorkAccidentService {
         `
           UPDATE hr_training_matrix_entries
           SET
-            employee_id = ${payload.employeeId ?? null},
-            employee_name = ${payload.employeeName ?? null},
-            sector = ${payload.sector ?? null},
-            critical_role = ${payload.criticalRole ?? null},
-            stage = ${payload.stage ?? null},
-            status = ${payload.status ?? null},
-            last_training_at = ${this.toDateOrNull(payload.lastTrainingAt)},
-            expires_at = ${this.toDateOrNull(payload.expiresAt)},
-            data = ${this.toJsonb(payload)}::jsonb,
+            employee_id = ${merged.employeeId ?? null},
+            employee_name = ${merged.employeeName ?? null},
+            sector = ${merged.sector ?? null},
+            critical_role = ${merged.criticalRole ?? null},
+            stage = ${merged.stage ?? null},
+            status = ${merged.status ?? null},
+            last_training_at = ${this.toDateOrNull(merged.lastTrainingAt)},
+            expires_at = ${this.toDateOrNull(merged.expiresAt)},
+            data = ${this.toJsonb(merged)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -592,12 +599,12 @@ export class WorkAccidentService {
         `
           UPDATE hr_epi_deliveries
           SET
-            employee_id = ${payload.employeeId ?? null},
-            employee_name = ${payload.employeeName ?? null},
-            delivery_date = ${this.toDateOrNull(payload.deliveryDate)},
-            items = ${this.toJsonb(payload.items)}::jsonb,
-            notes = ${payload.notes ?? null},
-            data = ${this.toJsonb(payload)}::jsonb,
+            employee_id = ${merged.employeeId ?? null},
+            employee_name = ${merged.employeeName ?? null},
+            delivery_date = ${this.toDateOrNull(merged.deliveryDate)},
+            items = ${this.toJsonb(merged.items)}::jsonb,
+            notes = ${merged.notes ?? null},
+            data = ${this.toJsonb(merged)}::jsonb,
             updated_at = NOW()
           WHERE id = ${id} AND company_id = ${companyId}
           RETURNING *
@@ -610,15 +617,15 @@ export class WorkAccidentService {
       `
         UPDATE hr_work_accidents
         SET
-          employee_id = ${payload.employeeId ?? null},
-          employee_name = ${payload.employeeName ?? null},
-          accident_date = ${this.toDateOrNull(payload.accidentDate)},
-          location = ${payload.location ?? null},
-          severity = ${payload.severity ?? null},
-          status = ${payload.status ?? null},
-          description = ${payload.description ?? null},
-          actions_taken = ${payload.actionsTaken ?? null},
-          data = ${this.toJsonb(payload)}::jsonb,
+          employee_id = ${merged.employeeId ?? null},
+          employee_name = ${merged.employeeName ?? null},
+          accident_date = ${this.toDateOrNull(merged.accidentDate)},
+          location = ${merged.location ?? null},
+          severity = ${merged.severity ?? null},
+          status = ${merged.status ?? null},
+          description = ${merged.description ?? null},
+          actions_taken = ${merged.actionsTaken ?? null},
+          data = ${this.toJsonb(merged)}::jsonb,
           updated_at = NOW()
         WHERE id = ${id} AND company_id = ${companyId}
         RETURNING *
