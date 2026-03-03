@@ -348,7 +348,7 @@ export class AnalysisService {
       return { products: [], rawMaterials: [] };
     }
 
-    const [products, rawMaterials] = await Promise.all([
+    const [products, rawMaterials, allVariants] = await Promise.all([
       this.prisma.products.findMany({
         where: { company_id: companyId },
         orderBy: { name: 'asc' },
@@ -357,10 +357,49 @@ export class AnalysisService {
         where: { companyId, deletedAt: null },
         orderBy: { nome: 'asc' },
       }),
+      this.prisma.product_variants.findMany({
+        where: { company_id: companyId },
+      }),
     ]);
 
+    // Group variants by product_id
+    const variantsByProduct = allVariants.reduce<Record<string, any[]>>((acc, v) => {
+      (acc[v.product_id] = acc[v.product_id] || []).push(v);
+      return acc;
+    }, {});
+
+    // Normalize products with their variants (extract stock from data JSON blob)
+    const normalizedProducts = products.map((p) => {
+      const extra = p.data && typeof p.data === 'object' ? p.data as Record<string, any> : {};
+      const dbVariants = variantsByProduct[p.id] || [];
+      const normalizedVariants = dbVariants.length > 0
+        ? dbVariants.map((v: any) => {
+            const vData = v.data && typeof v.data === 'object' ? v.data as Record<string, any> : {};
+            return {
+              ...v,
+              ...vData,
+              id: v.id,
+              name: v.name,
+              sku: v.sku,
+              code: v.code,
+              price: v.price,
+              stock: vData.stock ?? vData.currentStock ?? vData.quantity ?? 0,
+            };
+          })
+        : (p.variants as any[] ?? extra.variants ?? []);
+
+      return {
+        id: p.id,
+        name: p.name,
+        code: p.code ?? extra.code ?? null,
+        sku: p.sku ?? extra.sku ?? null,
+        currentStock: p.current_stock ?? extra.currentStock ?? 0,
+        variants: normalizedVariants,
+      };
+    });
+
     return {
-      products,
+      products: normalizedProducts,
       rawMaterials,
     };
   }

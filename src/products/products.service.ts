@@ -106,13 +106,20 @@ export class ProductService {
     // mistake the JSON blob for a wrapper and unwrap the response.
     const { data: _rawJsonBlob, ...entityWithoutData } = entity || {};
     const normalizedVariants = Array.isArray(variantsFromDb)
-      ? variantsFromDb.map((v) => ({
-          ...v,
-          name: v.name,
-          sku: v.sku,
-          code: v.code,
-          price: v.price,
-        }))
+      ? variantsFromDb.map((v) => {
+          const vData = v.data && typeof v.data === 'object' ? v.data as Record<string, any> : {};
+          return {
+            ...v,
+            ...vData,
+            id: v.id,
+            name: v.name,
+            sku: v.sku,
+            code: v.code,
+            price: v.price,
+            stock: vData.stock ?? vData.currentStock ?? vData.quantity ?? 0,
+            ean: vData.ean ?? vData.gs1Code ?? null,
+          };
+        })
       : entity.variants ?? extra.variants ?? [];
 
     return {
