@@ -23,6 +23,14 @@ export class AsaasService {
     return process.env.ASAAS_WEBHOOK_TOKEN?.trim() || '';
   }
 
+  /** Wallet ID — usado para split de pagamentos e transferências */
+  get walletId(): string {
+    return (
+      process.env.ASAAS_WALLET_ID?.trim() ||
+      '0c15b55e-0f29-4675-ad31-ec335db405bc'
+    );
+  }
+
   // ─── helpers ──────────────────────────────────────────────
 
   private headers(): Record<string, string> {
