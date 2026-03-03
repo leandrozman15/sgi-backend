@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Patch, Delete, UseGuards } from '@nestjs/common';
 import { ProductService } from './products.service';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -37,6 +37,16 @@ export class ProductController {
     @Tenant() companyId: string
   ) {
     return this.service.updateItem(id, updateDto, companyId);
+  }
+
+  @Patch(':id/adjust-stock')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async adjustStock(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Tenant() companyId: string
+  ) {
+    return this.service.adjustStock(id, companyId, body);
   }
 
   @Delete(':id')

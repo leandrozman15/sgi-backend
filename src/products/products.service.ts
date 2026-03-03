@@ -59,6 +59,8 @@ export class ProductService {
       ...(input?.aliquotaIBSMun !== undefined ? { aliquotaIBSMun: input.aliquotaIBSMun } : {}),
       ...(input?.aliquotaCBS !== undefined ? { aliquotaCBS: input.aliquotaCBS } : {}),
       ...(input?.baseCalculoIBSCBS !== undefined ? { baseCalculoIBSCBS: input.baseCalculoIBSCBS } : {}),
+      ...(input?.minStock !== undefined ? { minStock: input.minStock } : {}),
+      ...(input?.maxStock !== undefined ? { maxStock: input.maxStock } : {}),
       ...(input?.imageUrls !== undefined ? { imageUrls: input.imageUrls } : {}),
       ...(input?.variants !== undefined ? { variants: input.variants } : {}),
       ...(input?.rawMaterials !== undefined ? { rawMaterials: input.rawMaterials } : {}),
@@ -131,6 +133,8 @@ export class ProductService {
       customerBarcode: entity.customer_barcode ?? extra.customerBarcode ?? null,
       type: entity.type ?? extra.type ?? null,
       currentStock: entity.current_stock ?? extra.currentStock ?? 0,
+      minStock: extra.minStock ?? 0,
+      maxStock: extra.maxStock ?? 0,
       weight: entity.weight ?? extra.weight ?? null,
       dangerousGoodsClass: entity.dangerous_goods_class ?? extra.dangerousGoodsClass ?? null,
       countryOfOrigin: entity.country_of_origin ?? extra.countryOfOrigin ?? null,
@@ -357,6 +361,64 @@ export class ProductService {
       const variants = await this.prisma.product_variants.findMany({ where: { product_id: id } });
 
       return this.toClientProduct(updated, variants);
+  }
+
+  async adjustStock(id: string, companyId: string, payload: { currentStock?: number; minStock?: number; maxStock?: number; variantId?: string; reason?: string }) {
+    if (!companyId) throw new NotFoundException('Empresa não encontrada');
+
+    const existing = await this.prisma.products.findFirst({ where: { id, company_id: companyId } });
+    if (!existing) throw new NotFoundException('Produto não encontrado');
+
+    const extra = {
+      ...(existing?.data && typeof existing.data === 'object' ? existing.data : {}),
+      ...(payload.minStock !== undefined ? { minStock: payload.minStock } : {}),
+      ...(payload.maxStock !== undefined ? { maxStock: payload.maxStock } : {}),
+    };
+
+    // If adjusting a variant's stock, update the variant's data blob
+    if (payload.variantId && payload.currentStock !== undefined) {
+      const variant = await this.prisma.product_variants.findFirst({
+        where: { id: payload.variantId, product_id: id, company_id: companyId },
+      });
+      if (variant) {
+        const vData = variant.data && typeof variant.data === 'object' ? variant.data as Record<string, any> : {};
+        await this.prisma.product_variants.update({
+          where: { id: payload.variantId },
+          data: { data: { ...vData, stock: payload.currentStock }, updated_at: new Date() },
+        });
+      }
+    }
+
+    const updated = await this.prisma.products.update({
+      where: { id },
+      data: {
+        ...(payload.currentStock !== undefined && !payload.variantId
+          ? { current_stock: this.toIntOrNull(payload.currentStock) }
+          : {}),
+        data: Object.keys(extra).length > 0 ? extra : undefined,
+        updated_at: new Date(),
+      },
+    });
+
+    // Log the movement
+    await this.prisma.inventory_movements.create({
+      data: {
+        id: randomUUID(),
+        companyId,
+        data: {
+          productId: id,
+          variantId: payload.variantId || null,
+          type: 'Ajuste',
+          quantity: payload.currentStock,
+          reason: payload.reason || 'Ajuste manual de estoque',
+          itemName: existing.name,
+        },
+        updatedAt: new Date(),
+      },
+    });
+
+    const variants = await this.prisma.product_variants.findMany({ where: { product_id: id } });
+    return this.toClientProduct(updated, variants);
   }
 
   async deleteItem(id: string, companyId: string) {

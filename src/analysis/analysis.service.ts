@@ -394,6 +394,8 @@ export class AnalysisService {
         code: p.code ?? extra.code ?? null,
         sku: p.sku ?? extra.sku ?? null,
         currentStock: p.current_stock ?? extra.currentStock ?? 0,
+        minStock: extra.minStock ?? 0,
+        maxStock: extra.maxStock ?? 0,
         variants: normalizedVariants,
       };
     });
