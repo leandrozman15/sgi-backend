@@ -12,14 +12,26 @@ export class UserController {
       throw new UnauthorizedException('Missing authenticated user');
     }
 
-    const [claims, companies] = await Promise.all([
+    const [claims, userCompanies] = await Promise.all([
       this.usersService.getUserRole(user.uid),
       this.usersService.getUserCompanies(user.uid),
     ]);
 
+    // Detectar si el usuario es MASTER (por UID o por custom claim)
+    const masterUids = (process.env.MASTER_UIDS || process.env.MASTER_UID || 'HOR0BYhNFjSyJmrPKWySk8vdz6y2')
+      .split(',').map(u => u.trim()).filter(Boolean);
+    const isMaster = masterUids.includes(String(user.uid).trim()) ||
+      String(claims?.role || user?.role || '').toUpperCase() === 'MASTER';
+
+    // Para MASTER: si no tiene empresas via user_companies, cargar TODAS
+    let companies = userCompanies;
+    if (isMaster && companies.length === 0) {
+      companies = await this.usersService.getAllCompaniesForMaster();
+    }
+
     const activeCompanyId = claims?.companyId || user?.companyId || null;
     const selectedCompany = companies.find((company) => company.id === activeCompanyId);
-    const selectedRoles = selectedCompany?.roles || [];
+    const selectedRoles = selectedCompany?.roles || (isMaster ? ['MASTER'] : []);
 
     return {
       user: {
@@ -27,7 +39,7 @@ export class UserController {
         email: user.email || claims?.email || null,
         name: user.name || null,
         companyId: activeCompanyId,
-        role: selectedCompany?.role || claims?.role || user?.role || null,
+        role: selectedCompany?.role || claims?.role || user?.role || (isMaster ? 'MASTER' : null),
         roles: selectedRoles,
       },
       companies,

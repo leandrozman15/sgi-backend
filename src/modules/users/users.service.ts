@@ -143,6 +143,34 @@ export class UsersService {
     }
   }
 
+  /**
+   * Retorna TODAS las empresas del sistema (para usuarios MASTER).
+   * Se usa cuando el MASTER no tiene registros en user_companies.
+   */
+  async getAllCompaniesForMaster(): Promise<Array<{
+    id: string;
+    name: string;
+    role: string;
+    roles: string[];
+  }>> {
+    try {
+      const allCompanies = await this.prisma.companies.findMany({
+        where: { active: true },
+        orderBy: { name: 'asc' },
+      });
+
+      return allCompanies.map((company) => ({
+        id: company.id,
+        name: company.name,
+        role: 'MASTER',
+        roles: ['MASTER'],
+      }));
+    } catch (error) {
+      console.error('Erro ao buscar todas as empresas para MASTER:', error);
+      return [];
+    }
+  }
+
   async findById(id: string, companyId?: string): Promise<UserClaims | null> {
     try {
       const user = await this.auth.getUser(id);
