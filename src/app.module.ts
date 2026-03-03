@@ -30,6 +30,7 @@ import { AccountingModule } from './accounting/accounting.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { FirebaseModule } from './firebase/firebase.module';
+import { AsaasModule } from './asaas/asaas.module';
 
 // ✅ IMPORTAR INTERNAL MODULE
 import { InternalModule } from './internal/internal.module';
@@ -72,6 +73,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     MaintenanceModule,
     AccountingModule,
     AnalysisModule,
+    AsaasModule,
     
     // ✅ AGREGAR INTERNAL MODULE AQUÍ
     InternalModule,
