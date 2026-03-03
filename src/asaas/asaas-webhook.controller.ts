@@ -55,6 +55,7 @@ export class AsaasWebhookController {
 
     try {
       switch (event) {
+        // ─── Cobranças ───────────────────────────────────────
         case 'PAYMENT_CONFIRMED':
         case 'PAYMENT_RECEIVED':
           await this.onPaymentConfirmed(payment);
@@ -62,12 +63,56 @@ export class AsaasWebhookController {
 
         case 'PAYMENT_OVERDUE':
         case 'PAYMENT_REFUNDED':
+        case 'PAYMENT_REFUND_IN_PROGRESS':
+        case 'PAYMENT_REFUND_DENIED':
         case 'PAYMENT_CHARGEBACK_REQUESTED':
+        case 'PAYMENT_CHARGEBACK_DISPUTE':
+        case 'PAYMENT_AWAITING_CHARGEBACK_REVERSAL':
+          await this.onPaymentOverdue(payment);
+          break;
+
+        case 'PAYMENT_RESTORED':
+          await this.onPaymentConfirmed(payment);
+          break;
+
+        case 'PAYMENT_CREATED':
+        case 'PAYMENT_UPDATED':
+        case 'PAYMENT_AWAITING_RISK_ANALYSIS':
+        case 'PAYMENT_APPROVED_BY_RISK_ANALYSIS':
+        case 'PAYMENT_ANTICIPATED':
+        case 'PAYMENT_BANK_SLIP_VIEWED':
+        case 'PAYMENT_CHECKOUT_VIEWED':
+        case 'PAYMENT_DUNNING_RECEIVED':
+        case 'PAYMENT_DUNNING_REQUESTED':
+          this.logger.log(`Cobrança informacional: event=${event} payment=${payment?.id}`);
+          break;
+
+        case 'PAYMENT_REPROVED_BY_RISK_ANALYSIS':
+        case 'PAYMENT_CREDIT_CARD_CAPTURE_REFUSED':
           await this.onPaymentOverdue(payment);
           break;
 
         case 'PAYMENT_DELETED':
           this.logger.log(`Pagamento deletado: ${payment?.id}`);
+          break;
+
+        // ─── Assinaturas ─────────────────────────────────────
+        case 'SUBSCRIPTION_CREATED':
+          await this.onSubscriptionCreated(subscription);
+          break;
+
+        case 'SUBSCRIPTION_UPDATED':
+        case 'SUBSCRIPTION_RENEWED':
+          await this.onSubscriptionUpdated(subscription);
+          break;
+
+        case 'SUBSCRIPTION_DELETED':
+        case 'SUBSCRIPTION_INACTIVATED':
+          await this.onSubscriptionCancelled(subscription);
+          break;
+
+        case 'SUBSCRIPTION_ACTIVATED':
+          await this.onSubscriptionUpdated(subscription);
           break;
 
         default:
@@ -163,6 +208,100 @@ export class AsaasWebhookController {
     await this.logSubscriptionEvent(companyId, {
       event: 'payment_overdue',
       paymentId: payment.id,
+      date: new Date().toISOString(),
+    });
+  }
+
+  // ─── subscription event handlers ──────────────────────────
+
+  private async onSubscriptionCreated(subscription: any) {
+    if (!subscription) return;
+
+    const companyId = subscription.externalReference || '';
+    if (!companyId) {
+      this.logger.warn('Subscription criada sem externalReference');
+      return;
+    }
+
+    const planId = this.planIdFromValue(subscription.value, subscription.cycle);
+    const billingCycle = subscription.cycle === 'YEARLY' ? 'annual' : 'monthly';
+
+    this.logger.log(
+      `📋 Subscription criada: sub=${subscription.id} company=${companyId} plan=${planId}`,
+    );
+
+    await this.updateFirestoreBilling(companyId, {
+      currentPlanId: planId,
+      billingCycle,
+      asaasSubscriptionId: subscription.id,
+      asaasCustomerId: subscription.customer || null,
+      paymentMethod: subscription.billingType || null,
+      status: 'active',
+    });
+
+    await this.logSubscriptionEvent(companyId, {
+      event: 'subscription_created',
+      subscriptionId: subscription.id,
+      planId,
+      billingCycle,
+      value: subscription.value,
+      date: new Date().toISOString(),
+    });
+  }
+
+  private async onSubscriptionUpdated(subscription: any) {
+    if (!subscription) return;
+
+    const companyId = subscription.externalReference || '';
+    if (!companyId) return;
+
+    const planId = this.planIdFromValue(subscription.value, subscription.cycle);
+    const billingCycle = subscription.cycle === 'YEARLY' ? 'annual' : 'monthly';
+
+    this.logger.log(
+      `🔄 Subscription atualizada: sub=${subscription.id} company=${companyId} plan=${planId}`,
+    );
+
+    await this.updatePostgresPlan(companyId, planId, true);
+
+    await this.updateFirestoreBilling(companyId, {
+      currentPlanId: planId,
+      billingCycle,
+      asaasSubscriptionId: subscription.id,
+      paymentMethod: subscription.billingType || null,
+      status: subscription.status === 'ACTIVE' ? 'active' : 'pending_payment',
+    });
+
+    await this.logSubscriptionEvent(companyId, {
+      event: 'subscription_updated',
+      subscriptionId: subscription.id,
+      planId,
+      billingCycle,
+      value: subscription.value,
+      status: subscription.status,
+      date: new Date().toISOString(),
+    });
+  }
+
+  private async onSubscriptionCancelled(subscription: any) {
+    if (!subscription) return;
+
+    const companyId = subscription.externalReference || '';
+    if (!companyId) return;
+
+    this.logger.warn(
+      `❌ Subscription cancelada/inativada: sub=${subscription.id} company=${companyId}`,
+    );
+
+    await this.updateFirestoreBilling(companyId, {
+      status: 'cancelled',
+      asaasSubscriptionId: subscription.id,
+      pendingChange: null,
+    });
+
+    await this.logSubscriptionEvent(companyId, {
+      event: 'subscription_cancelled',
+      subscriptionId: subscription.id,
       date: new Date().toISOString(),
     });
   }

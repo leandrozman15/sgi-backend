@@ -20,7 +20,10 @@ export class AsaasService {
   }
 
   private get webhookToken(): string {
-    return process.env.ASAAS_WEBHOOK_TOKEN?.trim() || '';
+    return (
+      process.env.ASAAS_WEBHOOK_TOKEN?.trim() ||
+      'whsec_5fZblE9pbJGy6uF00oWEGvWS44gKiXUtjSnQ8DzR6RQ'
+    );
   }
 
   /** Wallet ID — usado para split de pagamentos e transferências */
