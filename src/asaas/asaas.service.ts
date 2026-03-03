@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { readFileSync } from 'fs';
 
 /**
  * Asaas API v3 client service.
@@ -7,9 +8,33 @@ import { Injectable, Logger } from '@nestjs/common';
 @Injectable()
 export class AsaasService {
   private readonly logger = new Logger(AsaasService.name);
+  private cachedApiKey: string | null = null;
 
   private get apiKey(): string {
-    return process.env.ASAAS_API_KEY?.trim() || '';
+    if (this.cachedApiKey !== null) return this.cachedApiKey;
+
+    // 1) env var
+    const fromEnv = process.env.ASAAS_API_KEY?.trim();
+    if (fromEnv) {
+      this.cachedApiKey = fromEnv;
+      return fromEnv;
+    }
+
+    // 2) Render secret file
+    try {
+      const fromFile = readFileSync('/etc/secrets/ASAAS_API_KEY', 'utf8').trim();
+      if (fromFile) {
+        this.cachedApiKey = fromFile;
+        this.logger.log('ASAAS_API_KEY loaded from /etc/secrets/ASAAS_API_KEY');
+        return fromFile;
+      }
+    } catch {
+      // file not present (dev environment)
+    }
+
+    this.cachedApiKey = '';
+    this.logger.warn('ASAAS_API_KEY not configured — API calls will fail');
+    return '';
   }
 
   private get baseUrl(): string {

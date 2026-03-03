@@ -18,7 +18,7 @@ export class UserController {
     ]);
 
     // Detectar si el usuario es MASTER (por UID o por custom claim)
-    const masterUids = (process.env.MASTER_UIDS || process.env.MASTER_UID || 'HOR0BYhNFjSyJmrPKWySk8vdz6y2')
+    const masterUids = (process.env.SUPER_ADMIN_UIDS || process.env.MASTER_UIDS || process.env.MASTER_UID || 'HOR0BYhNFjSyJmrPKWySk8vdz6y2')
       .split(',').map(u => u.trim()).filter(Boolean);
     const isMaster = masterUids.includes(String(user.uid).trim()) ||
       String(claims?.role || user?.role || '').toUpperCase() === 'MASTER';

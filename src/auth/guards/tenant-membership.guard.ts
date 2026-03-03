@@ -11,7 +11,7 @@ export class TenantMembershipGuard implements CanActivate {
   ) {}
 
   private getMasterUids(): string[] {
-    const raw = process.env.MASTER_UIDS || process.env.MASTER_UID || 'HOR0BYhNFjSyJmrPKWySk8vdz6y2';
+    const raw = process.env.SUPER_ADMIN_UIDS || process.env.MASTER_UIDS || process.env.MASTER_UID || 'HOR0BYhNFjSyJmrPKWySk8vdz6y2';
     return String(raw)
       .split(',')
       .map((uid) => uid.trim())
