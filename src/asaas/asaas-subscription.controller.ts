@@ -6,6 +6,8 @@ import {
   Body,
   Param,
   BadRequestException,
+  InternalServerErrorException,
+  HttpException,
   Logger,
 } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -106,12 +108,21 @@ export class AsaasSubscriptionController {
     });
 
     // Ensure Asaas customer exists
-    const customerId = await this.asaas.ensureCustomer({
-      companyId,
-      companyName: company.name,
-      adminEmail: adminUser?.users?.email || null,
-      cnpj: company.cnpj || null,
-    });
+    let customerId: string;
+    try {
+      customerId = await this.asaas.ensureCustomer({
+        companyId,
+        companyName: company.name,
+        adminEmail: adminUser?.users?.email || null,
+        cnpj: company.cnpj || null,
+      });
+    } catch (err: any) {
+      this.logger.error(`Falha ao criar/buscar cliente Asaas: ${err?.message}`);
+      const parsed = this.parseAsaasError(err?.message);
+      throw new BadRequestException(
+        parsed || 'Falha ao registrar empresa no gateway de pagamentos. Verifique o CNPJ da empresa.',
+      );
+    }
 
     // Next due date = today + 1 day
     const nextDue = new Date();
@@ -138,7 +149,16 @@ export class AsaasSubscriptionController {
       `Criando subscription: plan=${planId} cycle=${cycle} value=${value} type=${billingType} company=${companyId}`,
     );
 
-    const subscription = await this.asaas.createSubscription(subscriptionData);
+    let subscription: any;
+    try {
+      subscription = await this.asaas.createSubscription(subscriptionData);
+    } catch (err: any) {
+      this.logger.error(`Falha ao criar subscription Asaas: ${err?.message}`);
+      const parsed = this.parseAsaasError(err?.message);
+      throw new BadRequestException(
+        parsed || 'Falha ao criar assinatura no gateway de pagamentos. Tente novamente.',
+      );
+    }
 
     // Update Firestore billing doc immediately
     await this.updateFirestoreBilling(companyId, {
@@ -152,14 +172,18 @@ export class AsaasSubscriptionController {
     });
 
     // Update Postgres plan
-    await this.prisma.companies.update({
-      where: { id: companyId },
-      data: {
-        plan: planId,
-        active: true,
-        updated_at: new Date(),
-      },
-    });
+    try {
+      await this.prisma.companies.update({
+        where: { id: companyId },
+        data: {
+          plan: planId,
+          active: true,
+          updated_at: new Date(),
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`Falha ao atualizar plano no Postgres: ${err?.message}`);
+    }
 
     // Log event
     try {
@@ -315,11 +339,19 @@ export class AsaasSubscriptionController {
     }
 
     // Update subscription on Asaas
-    await this.asaas.updateSubscription(subscriptionId, {
-      value,
-      cycle,
-      description: `SGI Industrial – Plano ${planId} (${cycle === 'YEARLY' ? 'anual' : 'mensal'})`,
-    });
+    try {
+      await this.asaas.updateSubscription(subscriptionId, {
+        value,
+        cycle,
+        description: `SGI Industrial – Plano ${planId} (${cycle === 'YEARLY' ? 'anual' : 'mensal'})`,
+      });
+    } catch (err: any) {
+      this.logger.error(`Falha ao atualizar subscription Asaas: ${err?.message}`);
+      const parsed = this.parseAsaasError(err?.message);
+      throw new BadRequestException(
+        parsed || 'Falha ao atualizar assinatura no gateway de pagamentos.',
+      );
+    }
 
     const newBillingCycle = cycle === 'YEARLY' ? 'annual' : 'monthly';
 
@@ -399,6 +431,21 @@ export class AsaasSubscriptionController {
   }
 
   // ─── private helpers ──────────────────────────────────────
+
+  private parseAsaasError(raw?: string): string | null {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed?.errors && Array.isArray(parsed.errors)) {
+        return parsed.errors.map((e: any) => e.description || e.code || 'Erro desconhecido').join('; ');
+      }
+      if (parsed?.message) return parsed.message;
+      if (parsed?.description) return parsed.description;
+    } catch {
+      // not JSON
+    }
+    return raw.length > 200 ? raw.substring(0, 200) + '...' : raw;
+  }
 
   private async updateFirestoreBilling(
     companyId: string,
