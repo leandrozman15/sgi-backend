@@ -40,7 +40,7 @@ export class AsaasService {
   private get baseUrl(): string {
     return (
       process.env.ASAAS_API_BASE_URL?.trim() ||
-      'https://api-sandbox.asaas.com/v3'
+      'https://api.asaas.com/v3'
     );
   }
 
