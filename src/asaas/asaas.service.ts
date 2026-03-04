@@ -45,18 +45,20 @@ export class AsaasService {
   }
 
   private get webhookToken(): string {
-    return (
-      process.env.ASAAS_WEBHOOK_TOKEN?.trim() ||
-      'whsec_5fZblE9pbJGy6uF00oWEGvWS44gKiXUtjSnQ8DzR6RQ'
-    );
+    const token = process.env.ASAAS_WEBHOOK_TOKEN?.trim() || '';
+    if (!token) {
+      this.logger.warn('ASAAS_WEBHOOK_TOKEN not configured');
+    }
+    return token;
   }
 
   /** Wallet ID — usado para split de pagamentos e transferências */
   get walletId(): string {
-    return (
-      process.env.ASAAS_WALLET_ID?.trim() ||
-      '0c15b55e-0f29-4675-ad31-ec335db405bc'
-    );
+    const id = process.env.ASAAS_WALLET_ID?.trim() || '';
+    if (!id) {
+      this.logger.warn('ASAAS_WALLET_ID not configured');
+    }
+    return id;
   }
 
   // ─── helpers ──────────────────────────────────────────────
