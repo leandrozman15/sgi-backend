@@ -50,7 +50,12 @@ export class UserController {
 
   @Get('me')
   async getMe(@User() user: any) {
-    const claims = await this.usersService.getUserRole(user.uid);
+    let claims: any = null;
+    try {
+      claims = await this.usersService.getUserRole(user.uid);
+    } catch {
+      // Firebase Admin lookup failed — fall back to token claims
+    }
     return {
       uid: user.uid,
       email: user.email || claims?.email || '',

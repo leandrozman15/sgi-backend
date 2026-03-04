@@ -58,8 +58,12 @@ export class UsersService {
         companyId: user.customClaims.companyId as string || '',
         permissions: user.customClaims.permissions as string[] || []
       };
-    } catch (error) {
-      throw new NotFoundException('Usuário não encontrado');
+    } catch (error: any) {
+      if (error?.code === 'auth/user-not-found') {
+        throw new NotFoundException('Usuário não encontrado');
+      }
+      console.error(`getUserRole failed for uid=${uid}:`, error?.message || error);
+      throw error;
     }
   }
 
