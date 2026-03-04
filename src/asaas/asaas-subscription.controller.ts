@@ -101,6 +101,12 @@ export class AsaasSubscriptionController {
       throw new BadRequestException('Empresa não encontrada');
     }
 
+    if (!company.cnpj || company.cnpj.replace(/\D/g, '').length < 11) {
+      throw new BadRequestException(
+        'A empresa precisa ter um CPF ou CNPJ válido cadastrado para criar uma assinatura. Atualize os dados da empresa em Configurações.',
+      );
+    }
+
     // Get admin email
     const adminUser = await this.prisma.user_companies.findFirst({
       where: { company_id: companyId, role: 'ADMIN' },
