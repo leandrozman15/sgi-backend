@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from '../../auth/decorators/user.decorator';
 
@@ -59,6 +59,23 @@ export class UserController {
       permissions: claims?.permissions || user?.permissions || [],
       hasCompanyId: Boolean(claims?.companyId || user?.companyId),
     };
+  }
+
+  @Post('active-company')
+  async setActiveCompany(
+    @User() user: any,
+    @Body('companyId') companyId: string,
+  ) {
+    if (!user?.uid) {
+      throw new UnauthorizedException('Missing authenticated user');
+    }
+
+    const nextCompanyId = String(companyId || '').trim();
+    if (!nextCompanyId) {
+      throw new BadRequestException('companyId é obrigatório');
+    }
+
+    return this.usersService.setActiveCompany(user.uid, nextCompanyId);
   }
 
   @Get()

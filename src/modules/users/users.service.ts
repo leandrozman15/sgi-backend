@@ -95,6 +95,17 @@ export class UsersService {
     }
   }
 
+  async setActiveCompany(uid: string, companyId: string): Promise<{ uid: string; companyId: string; updated: true }> {
+    try {
+      const user = await this.auth.getUser(uid);
+      const currentClaims = (user.customClaims || {}) as Record<string, any>;
+      await this.auth.setCustomUserClaims(uid, { ...currentClaims, companyId });
+      return { uid, companyId, updated: true };
+    } catch (error) {
+      throw new Error(`Erro ao definir empresa ativa: ${error.message}`);
+    }
+  }
+
   async getUserCompanies(uid: string): Promise<Array<{
     id: string;
     name: string;
