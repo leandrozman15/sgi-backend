@@ -35,7 +35,11 @@ export class AsaasPaymentController {
       value: number;
       dueDate: string;
       description?: string;
-      // Credit card data (optional - for immediate charge)
+      externalReference?: string;
+      // Boleto
+      daysAfterDueDateToRegistrationCancellation?: number;
+      postalService?: boolean;
+      // Credit card
       creditCard?: {
         holderName: string;
         number: string;
@@ -53,11 +57,21 @@ export class AsaasPaymentController {
         phone?: string;
         mobilePhone?: string;
       };
-      // Token (alternative to card data)
       creditCardToken?: string;
       // Installments
       installmentCount?: number;
       installmentValue?: number;
+      totalValue?: number;
+      // Discount, interest, fine
+      discount?: { value: number; dueDateLimitDays?: number; type?: 'FIXED' | 'PERCENTAGE' };
+      interest?: { value: number; type?: 'PERCENTAGE' };
+      fine?: { value: number; type?: 'FIXED' | 'PERCENTAGE' };
+      // Split
+      split?: Array<{ walletId: string; fixedValue?: number; percentualValue?: number }>;
+      // Callback (redirect after payment)
+      callback?: { successUrl: string; autoRedirect?: boolean };
+      // PIX automático
+      pixAutomaticAuthorizationId?: string;
     },
   ) {
     const {
@@ -70,6 +84,15 @@ export class AsaasPaymentController {
       creditCardToken,
       installmentCount,
       installmentValue,
+      totalValue,
+      discount,
+      interest,
+      fine,
+      postalService,
+      daysAfterDueDateToRegistrationCancellation,
+      split,
+      callback,
+      pixAutomaticAuthorizationId,
     } = body;
 
     if (!value || value <= 0) {
@@ -93,9 +116,9 @@ export class AsaasPaymentController {
 
     // Installments validation
     if (installmentCount && installmentCount > 1) {
-      if (!installmentValue || installmentValue <= 0) {
+      if (!installmentValue && !totalValue) {
         throw new BadRequestException(
-          'installmentValue é obrigatório para parcelamento',
+          'installmentValue ou totalValue é obrigatório para parcelamento',
         );
       }
       if (installmentCount > 21) {
@@ -108,7 +131,7 @@ export class AsaasPaymentController {
     // Do NOT use installment fields for 1x payments
     if (installmentCount === 1) {
       throw new BadRequestException(
-        'Para cobranças avulsas (1x), não use installmentCount/installmentValue. Use apenas value.',
+        'Para cobranças avulsas (1x), não use installmentCount/installmentValue/totalValue. Use apenas value.',
       );
     }
 
@@ -144,16 +167,17 @@ export class AsaasPaymentController {
       req.connection?.remoteAddress ||
       undefined;
 
-    // Build payment payload
-    const paymentData: any = {
+    // Build payment payload — all Asaas /v3/payments fields
+    const paymentData: Record<string, any> = {
       customer: customerId,
       billingType,
       value,
       dueDate,
       description: description || `Cobrança SGI Industrial - ${company.name}`,
-      externalReference: companyId,
+      externalReference: body.externalReference || companyId,
     };
 
+    // Credit card
     if (billingType === 'CREDIT_CARD') {
       if (creditCardToken) {
         paymentData.creditCardToken = creditCardToken;
@@ -167,9 +191,39 @@ export class AsaasPaymentController {
     }
 
     // Installments (only for 2+ parcelas)
-    if (installmentCount && installmentCount >= 2 && installmentValue) {
+    if (installmentCount && installmentCount >= 2) {
       paymentData.installmentCount = installmentCount;
-      paymentData.installmentValue = installmentValue;
+      if (totalValue) {
+        paymentData.totalValue = totalValue;
+      } else if (installmentValue) {
+        paymentData.installmentValue = installmentValue;
+      }
+    }
+
+    // Boleto specific
+    if (daysAfterDueDateToRegistrationCancellation !== undefined) {
+      paymentData.daysAfterDueDateToRegistrationCancellation = daysAfterDueDateToRegistrationCancellation;
+    }
+    if (postalService !== undefined) {
+      paymentData.postalService = postalService;
+    }
+
+    // Discount, interest, fine
+    if (discount) paymentData.discount = discount;
+    if (interest) paymentData.interest = interest;
+    if (fine) paymentData.fine = fine;
+
+    // Split
+    if (split && Array.isArray(split) && split.length > 0) {
+      paymentData.split = split;
+    }
+
+    // Callback (redirect)
+    if (callback) paymentData.callback = callback;
+
+    // PIX automatic
+    if (pixAutomaticAuthorizationId) {
+      paymentData.pixAutomaticAuthorizationId = pixAutomaticAuthorizationId;
     }
 
     this.logger.log(

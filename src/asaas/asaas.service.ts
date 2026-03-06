@@ -225,35 +225,7 @@ export class AsaasService {
 
   // ─── one-off payments (credit card, PIX, boleto) ─────────
 
-  async createPayment(data: {
-    customer: string;
-    billingType: 'CREDIT_CARD' | 'PIX' | 'BOLETO' | 'UNDEFINED';
-    value: number;
-    dueDate: string;
-    description?: string;
-    externalReference?: string;
-    creditCard?: {
-      holderName: string;
-      number: string;
-      expiryMonth: string;
-      expiryYear: string;
-      ccv: string;
-    };
-    creditCardHolderInfo?: {
-      name: string;
-      email: string;
-      cpfCnpj: string;
-      postalCode: string;
-      addressNumber: string;
-      addressComplement?: string | null;
-      phone?: string;
-      mobilePhone?: string;
-    };
-    creditCardToken?: string;
-    installmentCount?: number;
-    installmentValue?: number;
-    remoteIp?: string;
-  }) {
+  async createPayment(data: Record<string, any>) {
     return this.request('POST', '/payments', data);
   }
 
