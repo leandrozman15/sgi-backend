@@ -35,6 +35,10 @@ import { AsaasModule } from './asaas/asaas.module';
 // ✅ IMPORTAR INTERNAL MODULE
 import { InternalModule } from './internal/internal.module';
 
+// --- Módulos de Turnos e Equipos ---
+import { ShiftModule } from './shifts/shifts.module';
+import { WorkTeamModule } from './work-teams/work-teams.module';
+
 // --- Guards ---
 import { FirebaseAuthGuard } from './auth/firebase-auth.guard';
 import { TenantMembershipGuard } from './auth/guards/tenant-membership.guard';
@@ -77,6 +81,10 @@ import { RolesGuard } from './auth/guards/roles.guard';
     
     // ✅ AGREGAR INTERNAL MODULE AQUÍ
     InternalModule,
+
+    // Módulos de Turnos e Equipos
+    ShiftModule,
+    WorkTeamModule,
   ],
   providers: [
     {
