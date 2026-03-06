@@ -11,6 +11,7 @@ type AdminBootstrapPayload = {
   adminName?: string;
   plan?: string;
   trial?: boolean;
+  trialDays?: number;
 };
 
 @Injectable()
@@ -27,6 +28,15 @@ export class CompanyService {
       return normalized;
     }
     return 'basic';
+  }
+
+  private normalizeTrialDays(input?: number): number {
+    const raw = Number(input);
+    if (!Number.isFinite(raw)) return 14;
+    const rounded = Math.round(raw);
+    if (rounded < 1) return 1;
+    if (rounded > 365) return 365;
+    return rounded;
   }
 
   private computeUsagePercent(
@@ -257,6 +267,7 @@ export class CompanyService {
     const cnpj = payload?.cnpj?.trim() || null;
     const plan = this.normalizePlan(payload?.plan);
     const isTrial = Boolean(payload?.trial);
+    const trialDays = this.normalizeTrialDays(payload?.trialDays);
 
     if (!companyName || !adminEmail) {
       throw new NotFoundException('Nome da empresa e email do admin são obrigatórios');
@@ -330,7 +341,7 @@ export class CompanyService {
 
         if (isTrial) {
           const trialEndsAt = new Date();
-          trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+          trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
           await tx.subscription_history.create({
             data: {
@@ -338,6 +349,7 @@ export class CompanyService {
               data: {
                 event: 'trial_started',
                 plan,
+                trialDays,
                 endsAt: trialEndsAt.toISOString(),
               },
             },
@@ -393,6 +405,7 @@ export class CompanyService {
         cnpj: company.cnpj,
         plan,
         trial: isTrial,
+        trialDays: isTrial ? trialDays : 0,
       },
       admin: {
         uid: userRecord.uid,

@@ -35,6 +35,7 @@ export class CompanyController {
       adminName?: string;
       plan?: string;
       trial?: boolean;
+      trialDays?: number;
     },
   ) {
     return this.service.bootstrapAdminCompany(payload);
