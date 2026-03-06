@@ -210,6 +210,31 @@ export class AsaasSubscriptionController {
       this.logger.warn(`Falha ao registrar histórico: ${err?.message}`);
     }
 
+    let firstPaymentId: string | null = null;
+    let pixQrCode: any = null;
+
+    if (billingType === 'PIX' && subscription?.id) {
+      try {
+        const paymentList = await this.asaas.listSubscriptionPayments(subscription.id);
+        const payments = Array.isArray(paymentList?.data) ? paymentList.data : [];
+        const firstPendingPayment = payments.find(
+          (item: any) => item?.id && item?.status !== 'CONFIRMED' && item?.status !== 'RECEIVED',
+        );
+
+        if (firstPendingPayment?.id) {
+          firstPaymentId = String(firstPendingPayment.id);
+
+          try {
+            pixQrCode = await this.asaas.getPaymentPixQrCode(firstPaymentId);
+          } catch (qrErr: any) {
+            this.logger.warn(`QR PIX ainda não disponível para ${firstPaymentId}: ${qrErr?.message}`);
+          }
+        }
+      } catch (paymentErr: any) {
+        this.logger.warn(`Falha ao listar pagamentos da assinatura ${subscription.id}: ${paymentErr?.message}`);
+      }
+    }
+
     return {
       subscriptionId: subscription.id,
       status: subscription.status,
@@ -217,8 +242,8 @@ export class AsaasSubscriptionController {
       value,
       cycle,
       nextDueDate,
-      // If PIX, first payment will need QR code
-      firstPaymentId: subscription.id ? undefined : null,
+      firstPaymentId,
+      pixQrCode,
     };
   }
 
