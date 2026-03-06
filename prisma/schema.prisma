@@ -116,6 +116,8 @@ model companies {
   user_companies                    user_companies[]
   users                             users[]
   work_accidents                    work_accidents[]
+  shifts                            shifts[]
+  work_teams                        work_teams[]
 }
 
 model employees {
@@ -1593,4 +1595,48 @@ model hr_benefit_controls {
   @@index([benefit_id])
   @@index([control_type])
   @@index([scope])
+}
+
+// ─── Gestão de Turnos de Trabalho ────────────────────────────────────────────
+
+model shifts {
+  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id          String
+  name                String
+  start_time          String
+  end_time            String
+  area                String?
+  supervisor_id       String?
+  supervisor_name     String?
+  worker_count        Int?      @default(0)
+  assigned_team_ids   String[]  @default([])
+  expected_production Int?      @default(0)
+  actual_production   Int?      @default(0)
+  status              String?   @default("Ativo")
+  data                Json?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  companies           companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([status])
+  @@index([area])
+}
+
+model work_teams {
+  id             String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id     String
+  name           String
+  area           String?
+  leader_id      String?
+  leader_name    String?
+  member_ids     String[]  @default([])
+  member_names   String[]  @default([])
+  data           Json?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  companies      companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([area])
 }
