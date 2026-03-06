@@ -16,7 +16,7 @@ import { AsaasService } from './asaas.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import * as admin from 'firebase-admin';
 
-/** Plan value mapping (monthly BRL) */
+/** Fallback plan values (monthly BRL) used only if Firestore catalog is unavailable. */
 const PLAN_VALUES: Record<string, number> = {
   basic: 497,
   pro: 897,
@@ -64,9 +64,8 @@ export class AsaasSubscriptionController {
   ) {
     const { planId, billingCycle, billingType, creditCard, creditCardHolderInfo } = body;
 
-    // Validate plan
-    const monthlyPrice = PLAN_VALUES[planId];
-    if (!monthlyPrice) {
+    const pricing = await this.resolvePlanPricing(planId);
+    if (!pricing) {
       throw new BadRequestException(`Plano inválido: ${planId}`);
     }
 
@@ -86,9 +85,9 @@ export class AsaasSubscriptionController {
     const cycle = billingCycle === 'annual' ? 'YEARLY' : 'MONTHLY';
     let value: number;
     if (billingCycle === 'annual') {
-      value = Math.round(monthlyPrice * 12 * (1 - ANNUAL_DISCOUNT));
+      value = Math.round(pricing.monthlyPrice * 12 * (1 - pricing.annualDiscount));
     } else {
-      value = monthlyPrice;
+      value = pricing.monthlyPrice;
     }
 
     // Get company info for Asaas customer
@@ -334,8 +333,8 @@ export class AsaasSubscriptionController {
   ) {
     const { planId, billingCycle } = body;
 
-    const monthlyPrice = PLAN_VALUES[planId];
-    if (!monthlyPrice) {
+    const pricing = await this.resolvePlanPricing(planId);
+    if (!pricing) {
       throw new BadRequestException(`Plano inválido: ${planId}`);
     }
 
@@ -364,9 +363,9 @@ export class AsaasSubscriptionController {
     const cycle = (billingCycle || billing.billingCycle) === 'annual' ? 'YEARLY' : 'MONTHLY';
     let value: number;
     if (cycle === 'YEARLY') {
-      value = Math.round(monthlyPrice * 12 * (1 - ANNUAL_DISCOUNT));
+      value = Math.round(pricing.monthlyPrice * 12 * (1 - pricing.annualDiscount));
     } else {
-      value = monthlyPrice;
+      value = pricing.monthlyPrice;
     }
 
     // Update subscription on Asaas
@@ -499,5 +498,58 @@ export class AsaasSubscriptionController {
     } catch (err: any) {
       this.logger.error(`Firestore update failed: ${err?.message}`);
     }
+  }
+
+  private async resolvePlanPricing(
+    planId: string,
+  ): Promise<{ monthlyPrice: number; annualDiscount: number } | null> {
+    const normalizedPlanId = String(planId || '').trim().toLowerCase();
+    if (!normalizedPlanId) return null;
+
+    // First source of truth: global public plan catalog edited in admin/plans.
+    try {
+      if (admin.apps.length > 0) {
+        const db = admin.firestore();
+        const publicPlansSnap = await db.collection('public').doc('plans').get();
+        const rawPlans = publicPlansSnap.exists
+          ? (publicPlansSnap.data()?.plans as any[] | undefined)
+          : undefined;
+
+        if (Array.isArray(rawPlans)) {
+          const match = rawPlans.find(
+            (item) => String(item?.id || '').trim().toLowerCase() === normalizedPlanId,
+          );
+
+          if (match) {
+            const monthlyPrice = Number(match?.monthlyPrice);
+            const annualDiscountPercent = Number(match?.annualDiscountPercent);
+            const annualDiscount =
+              Number.isFinite(annualDiscountPercent) && annualDiscountPercent >= 0 && annualDiscountPercent <= 80
+                ? annualDiscountPercent / 100
+                : ANNUAL_DISCOUNT;
+
+            if (Number.isFinite(monthlyPrice) && monthlyPrice > 0) {
+              return {
+                monthlyPrice: Math.round(monthlyPrice),
+                annualDiscount,
+              };
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Falha ao ler catálogo público de planos: ${err?.message}`);
+    }
+
+    // Fallback to static mapping so existing subscriptions keep working even if Firestore is unavailable.
+    const fallbackPrice = PLAN_VALUES[normalizedPlanId];
+    if (Number.isFinite(fallbackPrice) && fallbackPrice > 0) {
+      return {
+        monthlyPrice: fallbackPrice,
+        annualDiscount: ANNUAL_DISCOUNT,
+      };
+    }
+
+    return null;
   }
 }
