@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import * as admin from 'firebase-admin';
 import { UserRole } from '../types/roles';
@@ -351,9 +351,35 @@ export class EmployeeService {
         const firebaseUid = await this.ensureFirebaseAuthForEmployee(createdEmployee, data, companyId);
         if (firebaseUid) {
           createdEmployee.firebaseUid = firebaseUid;
+
+          const currentData = created?.data && typeof created.data === 'object' ? created.data : {};
+          await (this.prisma as any).employees.update({
+            where: { id: createdEmployee.id },
+            data: {
+              data: {
+                ...currentData,
+                firebaseUid,
+              },
+            },
+          });
         }
       } catch (error: any) {
-        this.logger.warn(`Firebase Auth sync skipped for new employee ${createdEmployee.id}: ${error?.message || error}`);
+        this.logger.error(
+          `Firebase Auth creation failed for new employee ${createdEmployee.id}: ${error?.message || error}`,
+        );
+
+        // Rollback employee creation when access was requested but auth user could not be provisioned.
+        await this.prisma.employees.deleteMany({
+          where: {
+            id: createdEmployee.id,
+            company_id: companyId,
+          },
+        });
+
+        throw new BadRequestException(
+          error?.message ||
+            'Não foi possível criar o acesso do funcionário no Firebase Auth. O cadastro foi revertido.',
+        );
       }
     }
 
