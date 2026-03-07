@@ -120,6 +120,9 @@ export class ProductionOrderService {
       }
     }
 
+    const existingData = existing?.data && typeof existing.data === 'object' ? existing.data : {};
+    const nextData = payload && typeof payload === 'object' ? { ...existingData, ...payload } : existingData;
+
     return this.prisma.production_orders.update({
       where: { id },
       data: {
@@ -128,7 +131,7 @@ export class ProductionOrderService {
         ...(nextVariantId !== undefined ? { variant_id: nextVariantId } : {}),
         ...(payload?.quantity !== undefined ? { quantity: Number(payload.quantity) } : {}),
         ...(payload?.status !== undefined ? { status: payload.status } : {}),
-        ...(payload !== undefined ? { data: payload } : {}),
+        ...(payload !== undefined ? { data: nextData } : {}),
         updated_at: new Date(),
       },
     });

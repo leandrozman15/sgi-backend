@@ -30,7 +30,14 @@ export class ProductionOrderController {
   }
 
   @Put(':id')
-  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  @Roles(
+    UserRole.MASTER,
+    UserRole.ADMIN,
+    UserRole.GERENTE,
+    UserRole.SUPERVISOR,
+    UserRole.OPERADOR,
+    UserRole.CONSULTOR,
+  )
   async update(
     @Param('id') id: string,
     @Body() updateDto: any,

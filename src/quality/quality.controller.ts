@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query } from '@nestjs/common';
 import { CalibrationService } from './quality.service';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -15,6 +15,23 @@ export class CalibrationController {
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findAll(@Tenant() companyId: string) {
     return this.service.findByCompany(companyId);
+  }
+
+  @Get('products/:productId/history')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async findByProduct(
+    @Param('productId') productId: string,
+    @Tenant() companyId: string,
+    @Query('productCode') productCode?: string,
+    @Query('productName') productName?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = Number(limit);
+    return this.service.findByProduct(companyId, productId, {
+      productCode,
+      productName,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : 300,
+    });
   }
 
   @Get(':id')

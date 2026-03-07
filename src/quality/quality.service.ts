@@ -102,6 +102,58 @@ export class CalibrationService {
     return null;
   }
 
+  private normalizeValue(value: any): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    return String(value).trim().toLowerCase();
+  }
+
+  private rowMatchesProduct(rowData: any, tokens: Set<string>) {
+    if (!rowData || typeof rowData !== 'object' || tokens.size === 0) {
+      return false;
+    }
+
+    const keyCandidates = [
+      'productId',
+      'produtoId',
+      'product_id',
+      'itemId',
+      'relatedProductId',
+      'codigoProduto',
+      'productCode',
+      'product_code',
+      'sku',
+      'code',
+      'documentoAssociado',
+      'productName',
+      'nomeProduto',
+      'nomeProdutoFinal',
+      'instrumentId',
+      'instrumentName',
+    ];
+
+    const directValues = keyCandidates
+      .map((key) => this.normalizeValue((rowData as Record<string, any>)[key]))
+      .filter(Boolean);
+
+    if (directValues.some((value) => tokens.has(value))) {
+      return true;
+    }
+
+    const productObject = (rowData as Record<string, any>).product;
+    if (productObject && typeof productObject === 'object') {
+      const nestedValues = ['id', 'code', 'name', 'sku']
+        .map((key) => this.normalizeValue((productObject as Record<string, any>)[key]))
+        .filter(Boolean);
+      if (nestedValues.some((value) => tokens.has(value))) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   async findByCompany(companyId: string) {
     if (!companyId) {
       return [];
@@ -120,6 +172,67 @@ export class CalibrationService {
       const bDate = new Date(b?.updated_at || b?.created_at || 0).getTime();
       return bDate - aDate;
     });
+  }
+
+  async findByProduct(
+    companyId: string,
+    productId: string,
+    options?: { productCode?: string; productName?: string; limit?: number },
+  ) {
+    if (!companyId) {
+      return {
+        productId,
+        total: 0,
+        inspections: 0,
+        complaints: 0,
+        calibrations: 0,
+        items: [],
+      };
+    }
+
+    const limit = Math.min(Math.max(Number(options?.limit ?? 300) || 300, 1), 1000);
+    const tokens = new Set<string>();
+    tokens.add(this.normalizeValue(productId));
+
+    const normalizedCode = this.normalizeValue(options?.productCode);
+    if (normalizedCode) {
+      tokens.add(normalizedCode);
+    }
+
+    const normalizedName = this.normalizeValue(options?.productName);
+    if (normalizedName) {
+      tokens.add(normalizedName);
+    }
+
+    const [inspections, complaints, calibrations] = await Promise.all([
+      this.listByTable('quality_inspections', companyId, 'inspection'),
+      this.listByTable('quality_complaints', companyId, 'complaint'),
+      this.listByTable('calibrations', companyId, 'calibration'),
+    ]);
+
+    const rows = [...inspections, ...complaints, ...calibrations]
+      .filter((row) => this.rowMatchesProduct(row?.data, tokens))
+      .sort((a, b) => {
+        const aDate = new Date(a?.updated_at || a?.created_at || 0).getTime();
+        const bDate = new Date(b?.updated_at || b?.created_at || 0).getTime();
+        return bDate - aDate;
+      })
+      .slice(0, limit);
+
+    const normalizedRows = rows.map((row) => ({
+      ...row,
+      createdAt: row?.data?.createdAt ?? row?.created_at ?? null,
+      updatedAt: row?.data?.updatedAt ?? row?.updated_at ?? null,
+    }));
+
+    return {
+      productId,
+      total: normalizedRows.length,
+      inspections: normalizedRows.filter((item) => item?.data?.entityType === 'inspection').length,
+      complaints: normalizedRows.filter((item) => item?.data?.entityType === 'complaint').length,
+      calibrations: normalizedRows.filter((item) => item?.data?.entityType === 'calibration').length,
+      items: normalizedRows,
+    };
   }
 
   async findById(id: string, companyId: string) {
