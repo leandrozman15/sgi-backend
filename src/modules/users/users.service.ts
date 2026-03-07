@@ -1,10 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  ServiceUnavailableException,
+  Logger,
+  HttpException,
+} from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { UserRole, UserClaims } from '../../types/roles';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
   private auth: admin.auth.Auth;
 
   constructor(private readonly prisma: PrismaService) {
@@ -100,14 +110,90 @@ export class UsersService {
   }
 
   async setActiveCompany(uid: string, companyId: string): Promise<{ uid: string; companyId: string; updated: true }> {
-    try {
-      const user = await this.auth.getUser(uid);
-      const currentClaims = (user.customClaims || {}) as Record<string, any>;
-      await this.auth.setCustomUserClaims(uid, { ...currentClaims, companyId });
-      return { uid, companyId, updated: true };
-    } catch (error) {
-      throw new Error(`Erro ao definir empresa ativa: ${error.message}`);
+    const normalizedUid = String(uid || '').trim();
+    const normalizedCompanyId = String(companyId || '').trim();
+
+    if (!normalizedUid) {
+      throw new BadRequestException('uid é obrigatório');
     }
+
+    if (!normalizedCompanyId) {
+      throw new BadRequestException('companyId é obrigatório');
+    }
+
+    try {
+      const targetCompany = await this.prisma.companies.findUnique({
+        where: { id: normalizedCompanyId },
+        select: { id: true, active: true },
+      });
+
+      if (!targetCompany) {
+        throw new NotFoundException('Empresa não encontrada');
+      }
+
+      if (targetCompany.active === false) {
+        throw new ForbiddenException('Empresa inativa não pode ser selecionada');
+      }
+
+      const user = await this.auth.getUser(normalizedUid);
+      const currentClaims = (user.customClaims || {}) as Record<string, any>;
+
+      const role = String(currentClaims?.role || '').trim().toUpperCase();
+      const isMasterByRole = role === 'MASTER' || role === 'SUPER_ADMIN' || role === 'SUPERADMIN';
+      const isMasterByUid = this.getMasterUids().includes(normalizedUid);
+      const isMaster = isMasterByRole || isMasterByUid;
+
+      if (!isMaster) {
+        const membership = await this.prisma.user_companies.findFirst({
+          where: {
+            user_id: normalizedUid,
+            company_id: normalizedCompanyId,
+          },
+          select: { id: true },
+        });
+
+        if (!membership) {
+          throw new ForbiddenException('Usuário não pertence à empresa informada');
+        }
+      }
+
+      await this.auth.setCustomUserClaims(normalizedUid, {
+        ...currentClaims,
+        companyId: normalizedCompanyId,
+      });
+
+      return { uid: normalizedUid, companyId: normalizedCompanyId, updated: true };
+    } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      const code = String(error?.code || '').trim();
+      const message = String(error?.message || 'unknown error');
+      this.logger.error(
+        `setActiveCompany failed uid=${normalizedUid} companyId=${normalizedCompanyId} code=${code} message=${message}`,
+        error?.stack,
+      );
+
+      if (code.startsWith('auth/')) {
+        throw new ServiceUnavailableException('Falha ao atualizar sessão no Firebase. Tente novamente em instantes.');
+      }
+
+      throw new InternalServerErrorException('Não foi possível definir a empresa ativa no momento.');
+    }
+  }
+
+  private getMasterUids(): string[] {
+    const raw =
+      process.env.SUPER_ADMIN_UIDS ||
+      process.env.MASTER_UIDS ||
+      process.env.MASTER_UID ||
+      'HOR0BYhNFjSyJmrPKWySk8vdz6y2';
+
+    return String(raw)
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
   }
 
   async getUserCompanies(uid: string): Promise<Array<{
