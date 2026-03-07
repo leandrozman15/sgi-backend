@@ -2,6 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
+type QualityRow = Record<string, any> & {
+  data?: Record<string, any>;
+};
+
 @Injectable()
 export class CalibrationService {
   private prisma: PrismaService;
@@ -52,7 +56,7 @@ export class CalibrationService {
     return exists;
   }
 
-  private async listByTable(tableName: string, companyId: string, entityType: string) {
+  private async listByTable(tableName: string, companyId: string, entityType: string): Promise<QualityRow[]> {
     if (!(await this.hasTable(tableName))) {
       return [];
     }
@@ -62,7 +66,7 @@ export class CalibrationService {
       companyId,
     );
 
-    return rows.map((row) => ({
+    return rows.map((row): QualityRow => ({
       ...row,
       data: {
         ...(row?.data && typeof row.data === 'object' ? row.data : {}),
@@ -210,7 +214,7 @@ export class CalibrationService {
       this.listByTable('calibrations', companyId, 'calibration'),
     ]);
 
-    const rows = [...inspections, ...complaints, ...calibrations]
+    const rows: QualityRow[] = [...inspections, ...complaints, ...calibrations]
       .filter((row) => this.rowMatchesProduct(row?.data, tokens))
       .sort((a, b) => {
         const aDate = new Date(a?.updated_at || a?.created_at || 0).getTime();
@@ -219,7 +223,7 @@ export class CalibrationService {
       })
       .slice(0, limit);
 
-    const normalizedRows = rows.map((row) => ({
+    const normalizedRows: QualityRow[] = rows.map((row): QualityRow => ({
       ...row,
       createdAt: row?.data?.createdAt ?? row?.created_at ?? null,
       updatedAt: row?.data?.updatedAt ?? row?.updated_at ?? null,
