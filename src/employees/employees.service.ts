@@ -117,6 +117,47 @@ export class EmployeeService {
       permissions,
     });
 
+    // Ensure the user exists in the users table and is linked to this company
+    // so that getUserCompanies() returns it and the user can log in normally.
+    try {
+      await this.prisma.users.upsert({
+        where: { id: userRecord.uid },
+        update: {
+          email: employee.email ?? userRecord.email ?? '',
+          name: employee.name ?? userRecord.displayName ?? null,
+          role,
+          company_id: companyId,
+          updated_at: new Date(),
+        },
+        create: {
+          id: userRecord.uid,
+          email: employee.email ?? userRecord.email ?? '',
+          name: employee.name ?? userRecord.displayName ?? null,
+          role,
+          company_id: companyId,
+        },
+      });
+
+      await this.prisma.user_companies.upsert({
+        where: {
+          user_id_company_id: {
+            user_id: userRecord.uid,
+            company_id: companyId,
+          },
+        },
+        update: { role },
+        create: {
+          user_id: userRecord.uid,
+          company_id: companyId,
+          role,
+        },
+      });
+    } catch (dbError: any) {
+      this.logger.warn(
+        `Could not upsert user_companies for employee ${employee.id} (uid=${userRecord.uid}): ${dbError?.message || dbError}`,
+      );
+    }
+
     return userRecord.uid;
   }
 
