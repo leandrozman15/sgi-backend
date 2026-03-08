@@ -12,10 +12,18 @@ export class UserController {
       throw new UnauthorizedException('Missing authenticated user');
     }
 
-    const [claims, userCompanies] = await Promise.all([
-      this.usersService.getUserRole(user.uid),
-      this.usersService.getUserCompanies(user.uid),
-    ]);
+    let claims: any = null;
+    let userCompanies: any[] = [];
+
+    try {
+      [claims, userCompanies] = await Promise.all([
+        this.usersService.getUserRole(user.uid),
+        this.usersService.getUserCompanies(user.uid),
+      ]);
+    } catch (err: any) {
+      // Degrade gracefully: use token claims only, so the frontend can still boot.
+      console.error('[session-init] Failed to load Firebase/DB claims:', err?.message || err);
+    }
 
     // Detectar si el usuario es MASTER (por UID o por custom claim)
     const masterUids = (process.env.SUPER_ADMIN_UIDS || process.env.MASTER_UIDS || process.env.MASTER_UID || 'HOR0BYhNFjSyJmrPKWySk8vdz6y2')

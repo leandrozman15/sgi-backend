@@ -70,10 +70,12 @@ export class UsersService {
       };
     } catch (error: any) {
       if (error?.code === 'auth/user-not-found') {
-        throw new NotFoundException('Usuário não encontrado');
+        return null;
       }
-      console.error(`getUserRole failed for uid=${uid}:`, error?.message || error);
-      throw error;
+      // Do not re-throw raw Firebase/network errors — they would become 500.
+      // Return null so callers can fall back to token claims.
+      console.error(`getUserRole failed for uid=${uid}:`, error?.code || error?.message || error);
+      return null;
     }
   }
 
@@ -229,8 +231,11 @@ export class UsersService {
           roles: [role],
         };
       });
-    } catch (error) {
-      throw new Error(`Erro ao obter empresas do usuário: ${error.message}`);
+    } catch (error: any) {
+      // Return empty list on DB/network error rather than throwing a raw Error
+      // which NestJS would turn into a 500.
+      console.error(`getUserCompanies failed for uid=${uid}:`, error?.message || error);
+      return [];
     }
   }
 

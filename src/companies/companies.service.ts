@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { getAuth } from 'firebase-admin/auth';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -282,13 +282,21 @@ export class CompanyService {
     } catch (error: any) {
       if (error?.code === 'auth/user-not-found') {
         isNewUser = true;
-        userRecord = await auth.createUser({
-          email: adminEmail,
-          displayName: adminName || `Admin ${companyName}`,
-          password: Math.random().toString(36).slice(-10),
-        });
+        try {
+          userRecord = await auth.createUser({
+            email: adminEmail,
+            displayName: adminName || `Admin ${companyName}`,
+            password: Math.random().toString(36).slice(-10),
+          });
+        } catch (createErr: any) {
+          throw new InternalServerErrorException(
+            `Não foi possível criar usuário no Firebase Auth: ${createErr?.message || createErr}`,
+          );
+        }
       } else {
-        throw error;
+        throw new InternalServerErrorException(
+          `Erro ao consultar Firebase Auth: ${error?.message || error}`,
+        );
       }
     }
 
@@ -367,7 +375,12 @@ export class CompanyService {
         const target = Array.isArray(error.meta?.target) ? error.meta?.target.join(', ') : 'campo único';
         throw new ConflictException(`Já existe um registro com valor duplicado em: ${target}`);
       }
-      throw error;
+      if (error instanceof ConflictException || error instanceof NotFoundException || error instanceof InternalServerErrorException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Erro ao criar empresa no banco de dados: ${error?.message || error}`,
+      );
     }
 
     let claimsUpdated = true;
