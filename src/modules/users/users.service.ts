@@ -198,6 +198,100 @@ export class UsersService {
       .filter(Boolean);
   }
 
+  private normalizeEmail(value: string | null | undefined): string {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  private normalizeMembershipRole(value: string | null | undefined): string {
+    const role = String(value || '').trim().toUpperCase();
+    if (!role) return 'CONSULTOR';
+    return role;
+  }
+
+  private async rebuildMembershipsFromEmployees(uid: string): Promise<void> {
+    let firebaseEmail = '';
+    try {
+      const firebaseUser = await this.auth.getUser(uid);
+      firebaseEmail = this.normalizeEmail(firebaseUser.email);
+    } catch {
+      return;
+    }
+
+    if (!firebaseEmail) return;
+
+    const employeeRows = await (this.prisma as any).employees.findMany({
+      where: {
+        email: firebaseEmail,
+      },
+      select: {
+        company_id: true,
+        role: true,
+        access_level: true,
+        has_access: true,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    if (!Array.isArray(employeeRows) || employeeRows.length === 0) return;
+
+    const rowsWithCompany = employeeRows
+      .filter((row: any) => String(row?.company_id || '').trim().length > 0)
+      // Prefer rows explicitly enabled for access when available.
+      .sort((a: any, b: any) => Number(Boolean(b?.has_access)) - Number(Boolean(a?.has_access)));
+
+    if (rowsWithCompany.length === 0) return;
+
+    const seen = new Set<string>();
+    const memberships = rowsWithCompany.filter((row: any) => {
+      const key = String(row.company_id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    for (const row of memberships) {
+      const companyId = String(row.company_id).trim();
+      const role = this.normalizeMembershipRole(row.role || row.access_level || 'CONSULTOR');
+
+      await this.prisma.user_companies.upsert({
+        where: {
+          user_id_company_id: {
+            user_id: uid,
+            company_id: companyId,
+          },
+        },
+        update: { role },
+        create: {
+          user_id: uid,
+          company_id: companyId,
+          role,
+        },
+      });
+    }
+
+    const primary = memberships[0];
+    const primaryCompanyId = String(primary.company_id).trim();
+    const primaryRole = this.normalizeMembershipRole(primary.role || primary.access_level || 'CONSULTOR');
+
+    await this.prisma.users.upsert({
+      where: { id: uid },
+      update: {
+        email: firebaseEmail,
+        role: primaryRole,
+        company_id: primaryCompanyId,
+        updated_at: new Date(),
+      },
+      create: {
+        id: uid,
+        email: firebaseEmail,
+        role: primaryRole,
+        company_id: primaryCompanyId,
+      },
+    });
+  }
+
   async getUserCompanies(uid: string): Promise<Array<{
     id: string;
     name: string;
@@ -219,8 +313,8 @@ export class UsersService {
         },
       });
 
-      // Self-heal path for legacy/orphan users: if membership is missing but users.company_id
-      // exists, rebuild user_companies so the user can access their company again.
+      // Self-heal path 1: if membership is missing but users.company_id exists,
+      // rebuild user_companies so the user can access their company again.
       if (memberships.length === 0) {
         const dbUser = await this.prisma.users.findUnique({
           where: { id: uid },
@@ -265,6 +359,24 @@ export class UsersService {
             },
           });
         }
+      }
+
+      // Self-heal path 2: recover memberships from employees table (email/fallback).
+      if (memberships.length === 0) {
+        await this.rebuildMembershipsFromEmployees(uid);
+        memberships = await this.prisma.user_companies.findMany({
+          where: {
+            user_id: uid,
+          },
+          include: {
+            companies: true,
+          },
+          orderBy: {
+            companies: {
+              name: 'asc',
+            },
+          },
+        });
       }
 
       return memberships.map((membership) => {
