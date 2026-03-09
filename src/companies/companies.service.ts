@@ -62,6 +62,19 @@ export class CompanyService {
     return process.env.FRONTEND_URL || 'https://studio--base-17793905-8ce2e.us-central1.hosted.app';
   }
 
+  private getMasterUids(): string[] {
+    const raw =
+      process.env.SUPER_ADMIN_UIDS ||
+      process.env.MASTER_UIDS ||
+      process.env.MASTER_UID ||
+      'HOR0BYhNFjSyJmrPKWySk8vdz6y2';
+
+    return String(raw)
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
   private async generateAccountActivationLink(email: string): Promise<string | null> {
     try {
       const auth = getAuth();
@@ -480,20 +493,55 @@ export class CompanyService {
     });
   }
 
-  async findByCompany(companyId: string) {
-    if (!companyId) {
+  async findByCompany(companyId: string, uid?: string | null, userRole?: string | null) {
+    const normalizedUid = String(uid || '').trim();
+    const normalizedRole = String(userRole || '').trim().toUpperCase();
+    const isMaster =
+      this.getMasterUids().includes(normalizedUid) ||
+      normalizedRole === 'MASTER' ||
+      normalizedRole === 'SUPER_ADMIN' ||
+      normalizedRole === 'SUPERADMIN';
+
+    if (companyId) {
+      const company = await this.prisma.companies.findFirst({
+        where: {
+          id: companyId,
+        },
+      });
+
+      return company ? [company] : [];
+    }
+
+    if (isMaster) {
       return this.prisma.companies.findMany({
+        where: {
+          active: true,
+        },
         orderBy: { name: 'asc' },
       });
     }
 
-    const company = await this.prisma.companies.findFirst({
+    if (!normalizedUid) {
+      return [];
+    }
+
+    const memberships = await this.prisma.user_companies.findMany({
       where: {
-        id: companyId,
+        user_id: normalizedUid,
+      },
+      include: {
+        companies: true,
+      },
+      orderBy: {
+        companies: {
+          name: 'asc',
+        },
       },
     });
 
-    return company ? [company] : [];
+    return memberships
+      .map((membership) => membership.companies)
+      .filter((company) => Boolean(company));
   }
 
   async findById(id: string, companyId: string) {

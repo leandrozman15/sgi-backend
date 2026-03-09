@@ -38,8 +38,9 @@ export class TenantMembershipGuard implements CanActivate {
     const routePath = request.route?.path || '';
     const method = request.method;
     const isUserSessionRoute = method === 'GET' && (routePath === '/users/me' || routePath === '/users/session-init');
+    const isCompaniesBootstrapRoute = method === 'GET' && routePath === '/companies';
     const isCompaniesAdminRoute = routePath.startsWith('/companies/admin');
-    if (isUserSessionRoute || isCompaniesAdminRoute) {
+    if (isUserSessionRoute || isCompaniesAdminRoute || isCompaniesBootstrapRoute) {
       return true;
     }
 

@@ -6,6 +6,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../types/roles';
 import { Tenant } from '../common/decorators/tenant.decorator';
 import { UpdateNfeCredentialsDto } from './dto/update-nfe-credentials.dto';
+import { User } from '../auth/decorators/user.decorator';
 
 @Controller('companies')
 @UseGuards(AuthGuard, RolesGuard)
@@ -60,9 +61,9 @@ export class CompanyController {
   }
 
   @Get()
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
-  async findAll(@Tenant() companyId: string) {
-    return this.service.findByCompany(companyId);
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
+  async findAll(@Tenant() companyId: string, @User() user: any) {
+    return this.service.findByCompany(companyId, user?.uid || null, user?.role || user?.claims?.role || null);
   }
 
   @Get('integrations/nfe/credentials')
@@ -81,7 +82,7 @@ export class CompanyController {
   }
 
   @Get(':id')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {
     return this.service.findById(id, companyId);
   }

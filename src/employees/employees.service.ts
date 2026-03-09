@@ -44,10 +44,12 @@ export class EmployeeService {
   }
 
   private resolveUserRole(employee: any): UserRole {
-    const rawRole = String(employee?.role || employee?.accessLevel || employee?.department || '').trim().toLowerCase();
+    const accessRole = String(employee?.accessLevel || employee?.department || '').trim().toLowerCase();
+    const jobRole = String(employee?.role || '').trim().toLowerCase();
+    const rawRole = accessRole || jobRole;
 
     if (rawRole.includes('master')) return UserRole.MASTER;
-    if (rawRole.includes('admin')) return UserRole.ADMIN;
+    if (rawRole.includes('admin') || rawRole.includes('administrador')) return UserRole.ADMIN;
     if (rawRole.includes('gerente') || rawRole.includes('manager')) return UserRole.GERENTE;
     if (rawRole.includes('supervisor')) return UserRole.SUPERVISOR;
     if (rawRole.includes('operador') || rawRole.includes('operator')) return UserRole.OPERADOR;
