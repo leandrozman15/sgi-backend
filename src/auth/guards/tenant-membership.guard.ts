@@ -35,11 +35,27 @@ export class TenantMembershipGuard implements CanActivate {
       throw new ForbiddenException('Acesso negado');
     }
 
-    const routePath = request.route?.path || '';
+    const routePath = String(request.route?.path || '');
+    const requestPath = String(request.path || request.originalUrl || '');
     const method = request.method;
-    const isUserSessionRoute = method === 'GET' && (routePath === '/users/me' || routePath === '/users/session-init');
-    const isCompaniesBootstrapRoute = method === 'GET' && routePath === '/companies';
-    const isCompaniesAdminRoute = routePath.startsWith('/companies/admin');
+    const isUserSessionRoute = method === 'GET' && (
+      routePath === '/users/me' ||
+      routePath === '/users/session-init' ||
+      routePath === '/me' ||
+      routePath === '/session-init' ||
+      requestPath.endsWith('/users/me') ||
+      requestPath.endsWith('/users/session-init')
+    );
+    const isCompaniesBootstrapRoute = method === 'GET' && (
+      routePath === '/companies' ||
+      routePath === '/' ||
+      requestPath === '/companies' ||
+      requestPath.endsWith('/companies')
+    );
+    const isCompaniesAdminRoute =
+      routePath.startsWith('/companies/admin') ||
+      routePath.startsWith('/admin') ||
+      requestPath.includes('/companies/admin');
     if (isUserSessionRoute || isCompaniesAdminRoute || isCompaniesBootstrapRoute) {
       return true;
     }
