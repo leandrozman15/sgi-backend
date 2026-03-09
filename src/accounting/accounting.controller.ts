@@ -12,7 +12,7 @@ export class AccountingController {
   constructor(private readonly service: AccountingService) {}
 
   @Get(':resource')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findAll(
     @Param('resource') resource: string,
     @Tenant() companyId: string,
@@ -22,7 +22,7 @@ export class AccountingController {
   }
 
   @Get(':resource/:id')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findOne(
     @Param('resource') resource: string,
     @Param('id') id: string,

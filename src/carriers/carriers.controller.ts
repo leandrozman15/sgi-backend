@@ -12,13 +12,13 @@ export class CarrierController {
   constructor(private readonly service: CarrierService) {}
 
   @Get()
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findAll(@Tenant() companyId: string) {
     return this.service.findByCompany(companyId);
   }
 
   @Get(':id')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {
     return this.service.findById(id, companyId);
   }

@@ -12,19 +12,19 @@ export class SaleController {
   constructor(private readonly service: SaleService) {}
 
   @Get()
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findAll(@Tenant() companyId: string) {
     return this.service.findByCompany(companyId);
   }
 
   @Get('lookup/access-key/:accessKey')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findByAccessKey(@Param('accessKey') accessKey: string, @Tenant() companyId: string) {
     return this.service.findByAccessKey(accessKey, companyId);
   }
 
   @Get(':id/fiscal-history')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async getFiscalHistory(@Param('id') id: string, @Tenant() companyId: string) {
     return this.service.getFiscalHistory(id, companyId);
   }
@@ -161,7 +161,7 @@ export class SaleController {
   }
 
   @Get(':id')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {
     return this.service.findById(id, companyId);
   }

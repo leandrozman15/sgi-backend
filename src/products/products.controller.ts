@@ -12,13 +12,13 @@ export class ProductController {
   constructor(private readonly service: ProductService) {}
 
   @Get()
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findAll(@Tenant() companyId: string) {
     return this.service.findByCompany(companyId);
   }
 
   @Get(':id')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {
     return this.service.findById(id, companyId);
   }
@@ -40,7 +40,7 @@ export class ProductController {
   }
 
   @Patch(':id/adjust-stock')
-  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR)
   async adjustStock(
     @Param('id') id: string,
     @Body() body: any,
