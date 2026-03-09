@@ -205,7 +205,7 @@ export class UsersService {
     roles: string[];
   }>> {
     try {
-      const memberships = await this.prisma.user_companies.findMany({
+      let memberships = await this.prisma.user_companies.findMany({
         where: {
           user_id: uid,
         },
@@ -218,6 +218,54 @@ export class UsersService {
           },
         },
       });
+
+      // Self-heal path for legacy/orphan users: if membership is missing but users.company_id
+      // exists, rebuild user_companies so the user can access their company again.
+      if (memberships.length === 0) {
+        const dbUser = await this.prisma.users.findUnique({
+          where: { id: uid },
+          select: {
+            company_id: true,
+            role: true,
+          },
+        });
+
+        const fallbackCompanyId = String(dbUser?.company_id || '').trim();
+        if (fallbackCompanyId) {
+          const fallbackRole = String(dbUser?.role || 'CONSULTOR').trim() || 'CONSULTOR';
+
+          await this.prisma.user_companies.upsert({
+            where: {
+              user_id_company_id: {
+                user_id: uid,
+                company_id: fallbackCompanyId,
+              },
+            },
+            update: {
+              role: fallbackRole,
+            },
+            create: {
+              user_id: uid,
+              company_id: fallbackCompanyId,
+              role: fallbackRole,
+            },
+          });
+
+          memberships = await this.prisma.user_companies.findMany({
+            where: {
+              user_id: uid,
+            },
+            include: {
+              companies: true,
+            },
+            orderBy: {
+              companies: {
+                name: 'asc',
+              },
+            },
+          });
+        }
+      }
 
       return memberships.map((membership) => {
         const role = typeof membership.role === 'string' && membership.role.length > 0

@@ -117,13 +117,15 @@ export class EmployeeService {
       permissions,
     });
 
-    // Ensure the user exists in the users table and is linked to this company
-    // so that getUserCompanies() returns it and the user can log in normally.
+    // Ensure the user exists in users/user_companies. If this fails, do NOT continue,
+    // otherwise we end up with an Auth user that cannot see any company in the app.
     try {
+      const normalizedDbEmail = this.normalizeEmail(employee.email ?? userRecord.email ?? '');
+
       await this.prisma.users.upsert({
         where: { id: userRecord.uid },
         update: {
-          email: employee.email ?? userRecord.email ?? '',
+          email: normalizedDbEmail,
           name: employee.name ?? userRecord.displayName ?? null,
           role,
           company_id: companyId,
@@ -131,7 +133,7 @@ export class EmployeeService {
         },
         create: {
           id: userRecord.uid,
-          email: employee.email ?? userRecord.email ?? '',
+          email: normalizedDbEmail,
           name: employee.name ?? userRecord.displayName ?? null,
           role,
           company_id: companyId,
@@ -153,8 +155,12 @@ export class EmployeeService {
         },
       });
     } catch (dbError: any) {
-      this.logger.warn(
-        `Could not upsert user_companies for employee ${employee.id} (uid=${userRecord.uid}): ${dbError?.message || dbError}`,
+      this.logger.error(
+        `Failed to link employee ${employee.id} (uid=${userRecord.uid}) to company ${companyId}: ${dbError?.message || dbError}`,
+        dbError?.stack,
+      );
+      throw new Error(
+        'Usuário criado no Firebase, mas não foi possível vincular à empresa no banco. Operação cancelada para evitar usuário sem empresa.',
       );
     }
 
