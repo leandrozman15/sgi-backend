@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
@@ -61,6 +61,26 @@ export class ProductionOrderService {
       }
 
       variantId = variant.id;
+    }
+
+    // Verify product exists in DB
+    const product = await this.prisma.products.findFirst({
+      where: { id: String(payload.product_id), company_id: companyId },
+    });
+    if (!product) {
+      throw new BadRequestException(
+        `Produto não encontrado (id: ${payload.product_id}). O produto pode não ter sido migrado para o banco de dados.`,
+      );
+    }
+
+    // Check for duplicate order number
+    const existingOrder = await this.prisma.production_orders.findFirst({
+      where: { number: payload.number },
+    });
+    if (existingOrder) {
+      throw new ConflictException(
+        `Já existe uma ordem de produção com o número ${payload.number}.`,
+      );
     }
 
     return this.prisma.production_orders.create({
