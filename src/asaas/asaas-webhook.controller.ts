@@ -7,6 +7,7 @@ import {
   Logger,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../auth/decorators/public.decorator';
 import { AsaasService } from './asaas.service';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -24,6 +25,7 @@ import * as admin from 'firebase-admin';
  *  - SUBSCRIPTION_CREATED / UPDATED / DELETED
  */
 @Controller('asaas/webhooks')
+@Throttle({ default: { ttl: 60000, limit: 30 } }) // 30 req/min for webhooks
 export class AsaasWebhookController {
   private readonly logger = new Logger(AsaasWebhookController.name);
 

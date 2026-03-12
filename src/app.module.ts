@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 
@@ -48,6 +49,13 @@ import { RolesGuard } from './auth/guards/roles.guard';
   imports: [
     // Módulos Core
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // Rate limiting: 60 requests per 60 seconds per IP
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 60,
+    }]),
+
     FirebaseModule,
     PrismaModule,
     AuthModule,
@@ -87,6 +95,11 @@ import { RolesGuard } from './auth/guards/roles.guard';
     WorkTeamModule,
   ],
   providers: [
+    // Rate limiter guard (first — blocks abuse before auth)
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: FirebaseAuthGuard,
