@@ -1,18 +1,16 @@
 import { Controller, Get } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator'; // ✅ Importar
+import { Throttle } from '@nestjs/throttler';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('health')
+@Throttle({ default: { ttl: 60000, limit: 20 } }) // 20 req/min for health checks
 export class HealthController {
   @Get()
-  @Public() // ✅ Hacer público para health checks
+  @Public()
   check() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      database: 'connected',
-      service: 'sgi-backend',
-      environment: process.env.NODE_ENV || 'development'
     };
   }
 }
