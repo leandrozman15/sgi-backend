@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import * as admin from 'firebase-admin';
 import { UserRole } from '../types/roles';
@@ -349,6 +349,32 @@ export class EmployeeService {
 
     const extra = this.normalizeExtraData(data);
     const role = data?.role ?? extra.role ?? null;
+
+    // Check for duplicate email within this company
+    if (data?.email) {
+      const dupEmail = await (this.prisma as any).employees.findFirst({
+        where: { email: data.email, company_id: companyId },
+      });
+      if (dupEmail) {
+        throw new ConflictException(
+          `Já existe um funcionário com o email ${data.email} nesta empresa.`,
+        );
+      }
+    }
+
+    // Check for duplicate document within this company
+    const doc = data?.document ?? data?.cpf;
+    if (doc) {
+      const dupDoc = await (this.prisma as any).employees.findFirst({
+        where: { document: doc, company_id: companyId },
+      });
+      if (dupDoc) {
+        throw new ConflictException(
+          `Já existe um funcionário com o documento ${doc} nesta empresa.`,
+        );
+      }
+    }
+
     const accessLevel = data?.accessLevel ?? extra.accessLevel ?? null;
     const hasAccess = data?.hasAccess !== undefined ? !!data.hasAccess : extra.hasAccess;
     const startDateRaw = data?.startDate ?? extra.startDate;

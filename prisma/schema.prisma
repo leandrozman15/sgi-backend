@@ -129,8 +129,8 @@ model companies {
 model employees {
   id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   name                String
-  email               String?   @unique
-  document            String?   @unique
+  email               String?
+  document            String?
   position            String?
   department          String?
   status              String?   @default("active")
@@ -156,6 +156,9 @@ model employees {
   tamanho_camisa      String?
   vacation_days       Int?
   companies           companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, email])
+  @@unique([company_id, document])
 }
 
 model financial_transactions {
