@@ -234,7 +234,7 @@ model inventory_movements {
 model machines {
   id                      String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
   name                    String
-  code                    String?                   @unique
+  code                    String?
   type                    String?
   status                  String?                   @default("active")
   company_id              String
@@ -275,6 +275,8 @@ model machines {
   maintenance_plans       maintenance_plans[]
   maintenance_schedules   maintenance_schedules[]
   maintenance_work_orders maintenance_work_orders[]
+
+  @@unique([company_id, code])
 }
 
 model maintenance_plans {
@@ -473,7 +475,7 @@ model memberships {
 
 model production_orders {
   id         String            @id @default(dbgenerated("(gen_random_uuid())::text"))
-  number     String            @unique
+  number     String
   product_id String
   quantity   Int
   status     String?           @default("pending")
@@ -486,13 +488,14 @@ model production_orders {
   products   products          @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   variants   product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
 
+  @@unique([company_id, number])
   @@index([variant_id])
 }
 
 model products {
   id                           String              @id @default(dbgenerated("(gen_random_uuid())::text"))
   name                         String
-  code                         String?             @unique
+  code                         String?
   description                  String?
   price                        Decimal?            @db.Decimal(10, 2)
   company_id                   String
@@ -539,6 +542,8 @@ model products {
   product_variants             product_variants[]
   production_orders            production_orders[]
   companies                    companies           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, code])
 }
 
 model product_variants {
@@ -1630,18 +1635,18 @@ model shifts {
 }
 
 model work_teams {
-  id             String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id     String
-  name           String
-  area           String?
-  leader_id      String?
-  leader_name    String?
-  member_ids     String[]  @default([])
-  member_names   String[]  @default([])
-  data           Json?
-  created_at     DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
-  companies      companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id   String
+  name         String
+  area         String?
+  leader_id    String?
+  leader_name  String?
+  member_ids   String[]  @default([])
+  member_names String[]  @default([])
+  data         Json?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+  companies    companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
   @@index([area])
@@ -1711,24 +1716,24 @@ model scraps {
 
 // ─── Commissions / Comissões ───────────────────────────────────────────────
 model commissions {
-  id              String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id      String
-  employee_id     String?
-  employee_name   String?
-  sale_id         String?
-  reference_type  String?
-  reference_id    String?
-  period          String?
-  amount          Decimal   @db.Decimal(14, 4)
-  rate            Decimal?  @db.Decimal(10, 4)
-  base_value      Decimal?  @db.Decimal(14, 4)
-  status          String    @default("pending")
-  paid_at         DateTime? @db.Timestamptz(6)
-  notes           String?
-  data            Json?
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
-  companies       companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id             String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id     String
+  employee_id    String?
+  employee_name  String?
+  sale_id        String?
+  reference_type String?
+  reference_id   String?
+  period         String?
+  amount         Decimal   @db.Decimal(14, 4)
+  rate           Decimal?  @db.Decimal(10, 4)
+  base_value     Decimal?  @db.Decimal(14, 4)
+  status         String    @default("pending")
+  paid_at        DateTime? @db.Timestamptz(6)
+  notes          String?
+  data           Json?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  companies      companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
   @@index([employee_id])
@@ -1788,26 +1793,26 @@ model dashboard_messages {
 
 // ─── Payroll Configs (configuração de holerite / folha) ────────────────────
 model payroll_configs {
-  id                    String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id            String
-  config_type           String    @default("general")
-  inss_table            Json?
-  irrf_table            Json?
-  fgts_rate             Decimal?  @db.Decimal(6, 4)
-  transport_voucher     Json?
-  meal_voucher          Json?
-  health_deduction      Json?
-  other_benefits        Json?
-  overtime_rates        Json?
-  hazard_premium_rate   Decimal?  @db.Decimal(6, 4)
-  unhealthy_premium_rate Decimal? @db.Decimal(6, 4)
-  active                Boolean   @default(true)
-  valid_from            DateTime? @db.Timestamptz(6)
-  valid_until           DateTime? @db.Timestamptz(6)
-  data                  Json?
-  created_at            DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime  @default(now()) @db.Timestamptz(6)
-  companies             companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id                     String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id             String
+  config_type            String    @default("general")
+  inss_table             Json?
+  irrf_table             Json?
+  fgts_rate              Decimal?  @db.Decimal(6, 4)
+  transport_voucher      Json?
+  meal_voucher           Json?
+  health_deduction       Json?
+  other_benefits         Json?
+  overtime_rates         Json?
+  hazard_premium_rate    Decimal?  @db.Decimal(6, 4)
+  unhealthy_premium_rate Decimal?  @db.Decimal(6, 4)
+  active                 Boolean   @default(true)
+  valid_from             DateTime? @db.Timestamptz(6)
+  valid_until            DateTime? @db.Timestamptz(6)
+  data                   Json?
+  created_at             DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime  @default(now()) @db.Timestamptz(6)
+  companies              companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@unique([company_id, config_type])
   @@index([company_id])

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { randomUUID } from 'crypto';
 
@@ -224,6 +224,17 @@ export class ProductService {
       throw new NotFoundException('Nome do produto é obrigatório');
     }
 
+    if (code) {
+      const duplicate = await this.prisma.products.findFirst({
+        where: { code, company_id: companyId },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `Já existe um produto com o código ${code}.`,
+        );
+      }
+    }
+
     const created = await this.prisma.products.create({
       data: {
         id: randomUUID(),
@@ -294,6 +305,18 @@ export class ProductService {
 
     if (!existing) {
       throw new NotFoundException('Produto não encontrado');
+    }
+
+    const newCode = data?.code ?? data?.sku;
+    if (newCode !== undefined && newCode !== existing.code) {
+      const duplicate = await this.prisma.products.findFirst({
+        where: { code: newCode, company_id: companyId },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `Já existe um produto com o código ${newCode}.`,
+        );
+      }
     }
 
     const extra = {

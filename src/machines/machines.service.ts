@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 
 @Injectable()
@@ -125,6 +125,17 @@ export class MachineService {
 
     const extra = this.normalizeExtraData(data);
 
+    if (data?.code) {
+      const duplicate = await this.prisma.machines.findFirst({
+        where: { code: data.code, company_id: companyId },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `Já existe uma máquina com o código ${data.code}.`,
+        );
+      }
+    }
+
     const created = await this.prisma.machines.create({
       data: {
         name: data?.name,
@@ -168,6 +179,17 @@ export class MachineService {
 
     if (!existing) {
       throw new NotFoundException('Máquina não encontrada');
+    }
+
+    if (data?.code !== undefined && data.code !== existing.code) {
+      const duplicate = await this.prisma.machines.findFirst({
+        where: { code: data.code, company_id: companyId },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `Já existe uma máquina com o código ${data.code}.`,
+        );
+      }
     }
 
     const extra = {
