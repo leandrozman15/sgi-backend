@@ -393,6 +393,8 @@ export class AnalysisService {
         name: p.name,
         code: p.code ?? extra.code ?? null,
         sku: p.sku ?? extra.sku ?? null,
+        customerBarcode: p.customer_barcode ?? extra.customerBarcode ?? null,
+        gs1Code: p.gs1_code ?? extra.gs1Code ?? null,
         currentStock: p.current_stock ?? extra.currentStock ?? 0,
         minStock: extra.minStock ?? 0,
         maxStock: extra.maxStock ?? 0,
