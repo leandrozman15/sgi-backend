@@ -129,8 +129,8 @@ model companies {
 model employees {
   id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   name                String
-  email               String?   @unique
-  document            String?   @unique
+  email               String?
+  document            String?
   position            String?
   department          String?
   status              String?   @default("active")
@@ -156,6 +156,9 @@ model employees {
   tamanho_camisa      String?
   vacation_days       Int?
   companies           companies @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, email], map: "employees_company_id_email_key")
+  @@unique([company_id, document], map: "employees_company_id_document_key")
 }
 
 model financial_transactions {
@@ -234,7 +237,7 @@ model inventory_movements {
 model machines {
   id                      String                    @id @default(dbgenerated("(gen_random_uuid())::text"))
   name                    String
-  code                    String?                   @unique
+  code                    String?
   type                    String?
   status                  String?                   @default("active")
   company_id              String
@@ -275,6 +278,8 @@ model machines {
   maintenance_plans       maintenance_plans[]
   maintenance_schedules   maintenance_schedules[]
   maintenance_work_orders maintenance_work_orders[]
+
+  @@unique([company_id, code], map: "machines_company_id_code_key")
 }
 
 model maintenance_plans {
@@ -473,7 +478,7 @@ model memberships {
 
 model production_orders {
   id         String            @id @default(dbgenerated("(gen_random_uuid())::text"))
-  number     String            @unique
+  number     String
   product_id String
   quantity   Int
   status     String?           @default("pending")
@@ -486,13 +491,14 @@ model production_orders {
   products   products          @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   variants   product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
 
+  @@unique([company_id, number], map: "production_orders_company_id_number_key")
   @@index([variant_id])
 }
 
 model products {
   id                           String              @id @default(dbgenerated("(gen_random_uuid())::text"))
   name                         String
-  code                         String?             @unique
+  code                         String?
   description                  String?
   price                        Decimal?            @db.Decimal(10, 2)
   company_id                   String
@@ -539,6 +545,8 @@ model products {
   product_variants             product_variants[]
   production_orders            production_orders[]
   companies                    companies           @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([company_id, code], map: "products_company_id_code_key")
 }
 
 model product_variants {
