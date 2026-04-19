@@ -73,9 +73,9 @@ export class ProductionOrderService {
       );
     }
 
-    // Check for duplicate order number
+    // Check for duplicate order number within this company
     const existingOrder = await this.prisma.production_orders.findFirst({
-      where: { number: payload.number },
+      where: { number: payload.number, company_id: companyId },
     });
     if (existingOrder) {
       throw new ConflictException(
@@ -142,6 +142,18 @@ export class ProductionOrderService {
 
     const existingData = existing?.data && typeof existing.data === 'object' ? existing.data : {};
     const nextData = payload && typeof payload === 'object' ? { ...existingData, ...payload } : existingData;
+
+    // Check for duplicate order number within this company (on number change)
+    if (payload?.number !== undefined && payload.number !== existing.number) {
+      const duplicate = await this.prisma.production_orders.findFirst({
+        where: { number: payload.number, company_id: companyId },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `Já existe uma ordem de produção com o número ${payload.number}.`,
+        );
+      }
+    }
 
     return this.prisma.production_orders.update({
       where: { id },

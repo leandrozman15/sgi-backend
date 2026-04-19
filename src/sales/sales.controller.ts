@@ -5,11 +5,15 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../types/roles';
 import { Tenant } from '../common/decorators/tenant.decorator';
+import { EmailService } from '../email/email.service';
 
 @Controller('sales')
 @UseGuards(AuthGuard, RolesGuard)
 export class SaleController {
-  constructor(private readonly service: SaleService) {}
+  constructor(
+    private readonly service: SaleService,
+    private readonly emailService: EmailService,
+  ) {}
 
   @Get()
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
@@ -186,5 +190,26 @@ export class SaleController {
   @Roles(UserRole.MASTER, UserRole.ADMIN)
   async remove(@Param('id') id: string, @Tenant() companyId: string) {
     return this.service.deleteItem(id, companyId);
+  }
+
+  // ── Email endpoints ──
+
+  @Post(':id/send-email')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async sendEmail(
+    @Param('id') id: string,
+    @Body() body: { to?: string },
+    @Tenant() companyId: string,
+  ) {
+    return this.emailService.sendInvoiceEmail(companyId, id, body?.to);
+  }
+
+  @Get(':id/email-logs')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
+  async getEmailLogs(
+    @Param('id') id: string,
+    @Tenant() companyId: string,
+  ) {
+    return this.emailService.getEmailLogs(companyId, id);
   }
 }
