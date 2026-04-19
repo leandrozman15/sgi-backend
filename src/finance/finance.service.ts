@@ -10,6 +10,7 @@ export class FinanceService {
     'bank-transactions': 'financial_bank_transactions',
     'tax-payments': 'tax_service_payments',
     'salary-payments': 'financial_salary_payments',
+    'fixed-expenses': 'fixed_expenses',
   };
 
   constructor(prisma: PrismaService) {

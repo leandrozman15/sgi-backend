@@ -119,6 +119,44 @@ export class TaxServicePaymentController {
     return this.service.deleteByResource('salary-payments', id, companyId);
   }
 
+  // ── Fixed Expenses (gastos fijos recurrentes) ──
+
+  @Get('fixed-expenses')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async findFixedExpenses(@Tenant() companyId: string, @Query('limit') limit?: string) {
+    return this.service.findByResource('fixed-expenses', companyId, Number(limit || 200));
+  }
+
+  @Get('fixed-expenses/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async findFixedExpenseById(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.findOneByResource('fixed-expenses', id, companyId);
+  }
+
+  @Post('fixed-expenses')
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async createFixedExpense(@Body() payload: any, @Tenant() companyId: string) {
+    return this.service.createByResource('fixed-expenses', payload, companyId);
+  }
+
+  @Patch('fixed-expenses/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async patchFixedExpense(@Param('id') id: string, @Body() payload: any, @Tenant() companyId: string) {
+    return this.service.updateByResource('fixed-expenses', id, payload, companyId);
+  }
+
+  @Put('fixed-expenses/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async putFixedExpense(@Param('id') id: string, @Body() payload: any, @Tenant() companyId: string) {
+    return this.service.updateByResource('fixed-expenses', id, payload, companyId);
+  }
+
+  @Delete('fixed-expenses/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN)
+  async removeFixedExpense(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.deleteByResource('fixed-expenses', id, companyId);
+  }
+
   @Get()
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async findAll(@Tenant() companyId: string) {
