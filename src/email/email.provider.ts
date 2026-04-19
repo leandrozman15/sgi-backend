@@ -26,19 +26,26 @@ export interface IEmailProvider {
 }
 
 export class ResendEmailProvider implements IEmailProvider {
-  private client: Resend;
+  private client: Resend | null = null;
   private from: string;
 
   constructor() {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) throw new Error('RESEND_API_KEY env var is required');
-    this.client = new Resend(apiKey);
     this.from = process.env.EMAIL_FROM || 'Fluxion Documentos <comercial@fluxi-on.com>';
+  }
+
+  private getClient(): Resend {
+    if (!this.client) {
+      const apiKey = process.env.RESEND_API_KEY;
+      if (!apiKey) throw new Error('RESEND_API_KEY env var is required');
+      this.client = new Resend(apiKey);
+    }
+    return this.client;
   }
 
   async send(params: SendEmailParams): Promise<SendEmailResult> {
     try {
-      const { data, error } = await this.client.emails.send({
+      const client = this.getClient();
+      const { data, error } = await client.emails.send({
         from: this.from,
         to: params.to,
         subject: params.subject,
