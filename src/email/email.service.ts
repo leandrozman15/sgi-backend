@@ -30,11 +30,31 @@ export class EmailService {
       return { success: false, error: 'Nota fiscal ainda não foi autorizada.' };
     }
 
-    const recipientEmail =
+    // Resolve recipient email: override > sale data > client contacts lookup
+    let recipientEmail =
       overrideTo ||
       saleData.clienteEmail ||
       saleData.destinatario?.email ||
       saleData.tomador?.email;
+
+    // Fallback: lookup client by ID and check contacts array
+    if (!recipientEmail && saleData.clienteId) {
+      try {
+        const client = await this.prisma.clients.findFirst({
+          where: { id: saleData.clienteId, companyId },
+        });
+        if (client) {
+          const clientData = (client as any).data || {};
+          const contacts = Array.isArray(clientData.contacts) ? clientData.contacts : [];
+          const contactWithEmail = contacts.find((c: any) => c?.email);
+          if (contactWithEmail) {
+            recipientEmail = contactWithEmail.email;
+          }
+        }
+      } catch (lookupErr) {
+        this.logger.warn(`Failed to lookup client email: ${lookupErr}`);
+      }
+    }
 
     if (!recipientEmail) {
       return { success: false, error: 'E-mail do destinatário não encontrado na nota.' };
