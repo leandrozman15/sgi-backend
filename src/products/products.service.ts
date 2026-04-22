@@ -66,6 +66,7 @@ export class ProductService {
       ...(input?.rawMaterials !== undefined ? { rawMaterials: input.rawMaterials } : {}),
       ...(input?.stages !== undefined ? { stages: input.stages } : {}),
       ...(input?.technicalSpecs !== undefined ? { technicalSpecs: input.technicalSpecs } : {}),
+      ...(input?.selectedEpis !== undefined ? { selectedEpis: input.selectedEpis } : {}),
     };
   }
 
@@ -165,6 +166,7 @@ export class ProductService {
       rawMaterials: entity.raw_materials ?? extra.rawMaterials ?? [],
       stages: entity.stages ?? extra.stages ?? [],
       technicalSpecs: entity.technical_specs ?? extra.technicalSpecs ?? [],
+      selectedEpis: extra.selectedEpis ?? [],
       variants: normalizedVariants,
     };
   }
