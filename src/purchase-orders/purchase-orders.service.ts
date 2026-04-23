@@ -25,6 +25,11 @@ export class PurchaseOrderService {
       ...(input?.produtos !== undefined ? { produtos: input.produtos } : {}),
       ...(input?.estado !== undefined ? { estado: input.estado } : {}),
       ...(input?.fechaOrden !== undefined ? { fechaOrden: input.fechaOrden } : {}),
+      // Soft-archive flags (kept inside the JSONB blob since the relational
+      // schema has no dedicated columns). Without this the PUT silently drops
+      // them and the frontend Archivar button appears to do nothing.
+      ...(input?.archived !== undefined ? { archived: !!input.archived } : {}),
+      ...(input?.archivedAt !== undefined ? { archivedAt: input.archivedAt } : {}),
     };
   }
 
@@ -44,6 +49,8 @@ export class PurchaseOrderService {
       produtos: entity.produtos ?? extra.produtos ?? [],
       estado: entity.estado ?? extra.estado ?? null,
       fechaOrden: entity.fecha_orden ?? extra.fechaOrden ?? null,
+      archived: !!extra.archived,
+      archivedAt: extra.archivedAt ?? null,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at,
     };
