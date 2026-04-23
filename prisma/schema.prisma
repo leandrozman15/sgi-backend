@@ -1851,3 +1851,36 @@ model fixed_expenses {
 
   @@index([company_id])
 }
+
+// ─── Expedições (Saída de Produto) + Packing/Embalagem ─────────────────────
+model expeditions {
+  id                    String    @id(map: "Expedition_pkey")
+  companyId             String
+  pedidoRef             String?
+  pedidoId              String?
+  clienteNome           String
+  dataExpedicao         DateTime
+  status                String    @default("Pendente")
+  tipoEnvio             String
+  transportadoraNome    String?
+  numeroGuia            String?
+  modalidadeFrete       String?
+  placaVeiculo          String?
+  observacoes           String?
+  tipoDocumentoFiscal   String?
+  nfeNumero             String?
+  nfeStatus             String?
+  items                 Json      @default("[]")
+  bultos                Json      @default("[]")
+  historico             Json      @default("[]")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+  deletedAt             DateTime?
+  createdBy             String?
+
+  @@index([companyId], map: "Expedition_companyId_idx")
+  @@index([companyId, deletedAt], map: "Expedition_companyId_deletedAt_idx")
+  @@index([companyId, status], map: "Expedition_companyId_status_idx")
+  @@index([companyId, dataExpedicao], map: "Expedition_companyId_dataExpedicao_idx")
+  @@index([pedidoId], map: "Expedition_pedidoId_idx")
+}
