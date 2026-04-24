@@ -51,4 +51,35 @@ export class ProductionOrderController {
   async remove(@Param('id') id: string, @Tenant() companyId: string) {
     return this.service.deleteItem(id, companyId);
   }
+
+  // ─── Bultos (Embalagem) ──────────────────────────────────────────────────
+
+  @Post(':id/bultos')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR)
+  async addBulto(
+    @Param('id') id: string,
+    @Body() bultoDto: any,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.addBulto(id, bultoDto, companyId);
+  }
+
+  @Delete(':id/bultos/:bultoId')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR)
+  async removeBulto(
+    @Param('id') id: string,
+    @Param('bultoId') bultoId: string,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.removeBulto(id, bultoId, companyId);
+  }
+
+  @Post(':id/confirmar-embalagem')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR)
+  async confirmarEmbalagem(
+    @Param('id') id: string,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.confirmarEmbalagem(id, companyId);
+  }
 }

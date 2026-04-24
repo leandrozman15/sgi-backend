@@ -187,4 +187,116 @@ export class ProductionOrderService {
 
     return { id };
   }
+
+  // ─── Bultos (Embalagem) ────────────────────────────────────────────────────
+
+  private async _getOrder(id: string, companyId: string) {
+    const order = await this.prisma.production_orders.findFirst({
+      where: { id, company_id: companyId },
+    });
+    if (!order) throw new NotFoundException('Ordem de produção não encontrada');
+    return order;
+  }
+
+  async addBulto(orderId: string, bultoDto: any, companyId: string) {
+    const order = await this._getOrder(orderId, companyId);
+
+    const existingData: any =
+      order.data && typeof order.data === 'object' ? order.data : {};
+
+    if (existingData.packagingLocked) {
+      throw new BadRequestException('Embalagem já confirmada. Não é possível adicionar bultos.');
+    }
+
+    const bultos: any[] = Array.isArray(existingData.bultos) ? existingData.bultos : [];
+
+    const newBulto = {
+      id: randomUUID(),
+      code: `BX-${String(bultos.length + 1).padStart(3, '0')}`,
+      tipo: bultoDto.tipo ?? 'Caixa',
+      productId: bultoDto.productId ?? null,
+      productName: bultoDto.productName ?? null,
+      quantidade: Number(bultoDto.quantidade ?? 0),
+      pesoBruto: Number(bultoDto.pesoBruto ?? 0),
+      pesoLiquido: bultoDto.pesoLiquido !== undefined ? Number(bultoDto.pesoLiquido) : null,
+      largura: Number(bultoDto.largura ?? 0),
+      altura: Number(bultoDto.altura ?? 0),
+      profundidade: Number(bultoDto.profundidade ?? 0),
+      createdAt: new Date().toISOString(),
+    };
+
+    bultos.push(newBulto);
+
+    const updatedData = {
+      ...existingData,
+      bultos,
+      packagingStatus: existingData.packagingStatus === 'Embalado' ? 'Embalado' : 'Em embalagem',
+    };
+
+    return this.prisma.production_orders.update({
+      where: { id: orderId },
+      data: { data: updatedData, updated_at: new Date() },
+    });
+  }
+
+  async removeBulto(orderId: string, bultoId: string, companyId: string) {
+    const order = await this._getOrder(orderId, companyId);
+
+    const existingData: any =
+      order.data && typeof order.data === 'object' ? order.data : {};
+
+    if (existingData.packagingLocked) {
+      throw new BadRequestException('Embalagem já confirmada. Não é possível remover bultos.');
+    }
+
+    const bultos: any[] = Array.isArray(existingData.bultos) ? existingData.bultos : [];
+    const filtered = bultos.filter((b: any) => b.id !== bultoId);
+
+    if (filtered.length === bultos.length) {
+      throw new NotFoundException('Bulto não encontrado');
+    }
+
+    // Re-sequence codes
+    const resequenced = filtered.map((b: any, i: number) => ({
+      ...b,
+      code: `BX-${String(i + 1).padStart(3, '0')}`,
+    }));
+
+    const updatedData = {
+      ...existingData,
+      bultos: resequenced,
+      packagingStatus: resequenced.length === 0 ? 'Pendente' : existingData.packagingStatus,
+    };
+
+    return this.prisma.production_orders.update({
+      where: { id: orderId },
+      data: { data: updatedData, updated_at: new Date() },
+    });
+  }
+
+  async confirmarEmbalagem(orderId: string, companyId: string) {
+    const order = await this._getOrder(orderId, companyId);
+
+    const existingData: any =
+      order.data && typeof order.data === 'object' ? order.data : {};
+
+    const bultos: any[] = Array.isArray(existingData.bultos) ? existingData.bultos : [];
+
+    if (bultos.length === 0) {
+      throw new BadRequestException('Adicione ao menos um bulto antes de confirmar a embalagem.');
+    }
+
+    const updatedData = {
+      ...existingData,
+      bultos,
+      packagingStatus: 'Embalado',
+      packagingLocked: true,
+      packagingConfirmedAt: new Date().toISOString(),
+    };
+
+    return this.prisma.production_orders.update({
+      where: { id: orderId },
+      data: { data: updatedData, updated_at: new Date() },
+    });
+  }
 }
