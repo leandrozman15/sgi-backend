@@ -59,6 +59,42 @@ export class SaleService {
     return value ? String(value) : undefined;
   }
 
+  /**
+   * Returns the next NFe number to attempt for the given company/series.
+   * The number is derived from the highest document_number among fiscal
+   * documents that are **actually authorized** by SEFAZ
+   * (status='EMITIDA' AND access_key IS NOT NULL).
+   *
+   * Rejected or pending attempts DO NOT consume the sequence — so a
+   * failed emission is fully reusable on the next attempt.
+   */
+  async getNextNfeCandidate(companyId: string, series: number | string = 1): Promise<number> {
+    if (!companyId) return 1;
+    const seriesStr = String(series ?? 1);
+    const rows = await this.prisma.sales_fiscal_documents.findMany({
+      where: {
+        company_id: companyId,
+        document_type: 'NFE',
+        status: 'EMITIDA',
+        series: seriesStr,
+        access_key: { not: null },
+        document_number: { not: null },
+      },
+      select: { document_number: true },
+    });
+    let max = 0;
+    for (const r of rows) {
+      const n = Number(r.document_number);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+    return max + 1;
+  }
+
+  async getNextNfeNumber(companyId: string, series: number | string = 1) {
+    const next = await this.getNextNfeCandidate(companyId, series);
+    return { series: Number(series) || 1, next };
+  }
+
   private async parseProviderResponse(response: Response): Promise<any> {
     const rawResponse = await response.text();
 
@@ -965,6 +1001,25 @@ export class SaleService {
     const url = this.buildBrasilNfeUrl('/EnviarNotaFiscal');
     const token = await this.resolveBrasilNfeToken(companyId);
 
+    // PROFESSIONAL NUMBERING RULE
+    // The NFe number is "consumed" ONLY when SEFAZ authorizes the document
+    // (status EMITIDA + access_key persisted in sales_fiscal_documents).
+    // Until then, every retry must reuse the same candidate number. We
+    // therefore (re)derive Codigo from the authorized history when the
+    // caller did not pass one, or passed 0/empty. This makes the frontend
+    // free of stale local counters that previously caused "número en uso".
+    const requestedSeries = Number(payload?.Serie ?? 1) || 1;
+    const requestedCodigo = Number(payload?.Codigo);
+    if (!Number.isFinite(requestedCodigo) || requestedCodigo <= 0) {
+      payload = {
+        ...payload,
+        Serie: requestedSeries,
+        Codigo: await this.getNextNfeCandidate(companyId, requestedSeries),
+      };
+    }
+    const attemptedNumber = String(payload.Codigo);
+    const attemptedSeries = String(payload.Serie ?? requestedSeries);
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -999,11 +1054,16 @@ export class SaleService {
 
       if (!success) {
         const message = sefazMessage;
-        await this.updateItem(saleId, { nfeStatus: 'ERRO', nfeErro: message }, companyId);
+        // SEFAZ explicitly rejected the document. The candidate number
+        // remains FREE for the next attempt (we do NOT persist
+        // status='EMITIDA', which is what the sequence helper looks at).
+        await this.updateItem(saleId, { nfeStatus: 'REJEITADA', nfeErro: message }, companyId);
 
         const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
           documentType: 'NFE',
-          status: 'ERRO',
+          documentNumber: attemptedNumber,
+          series: attemptedSeries,
+          status: 'REJEITADA',
           sefazStatusCode: sefazCode || null,
           sefazStatusMessage: message,
           data: { request: payload, response: responseData, httpStatus: response.status },
@@ -1012,13 +1072,13 @@ export class SaleService {
         await this.createFiscalEvent(saleId, companyId, {
           fiscalDocumentId: fiscalDoc?.id,
           eventType: 'EMISSAO',
-          eventStatus: 'ERRO',
+          eventStatus: 'REJEITADA',
           eventDate: new Date().toISOString(),
           reason: message,
           data: { response: responseData, httpStatus: response.status },
         });
 
-        return { success: false, message, data: responseData };
+        return { success: false, message, data: responseData, attemptedNumber: Number(attemptedNumber), reusable: true };
       }
 
       const protocol = this.asProtocolNumber(responseData?.ReturnNF ?? responseData);
@@ -1064,11 +1124,19 @@ export class SaleService {
       };
     } catch (error: any) {
       const message = error?.message || 'Erro interno na emissão da NF-e.';
-      await this.updateItem(saleId, { nfeStatus: 'ERRO', nfeErro: message }, companyId);
+      // Unknown state: we never received an authoritative SEFAZ response.
+      // We MUST NOT consume the number here. Mark sale as
+      // PENDENTE_CONSULTA so the operator (or a job) calls
+      // POST /sales/:id/nfe/check to find out whether SEFAZ actually
+      // authorized this number behind the scenes. Only after that
+      // consultation can we decide to consume or release the number.
+      await this.updateItem(saleId, { nfeStatus: 'PENDENTE_CONSULTA', nfeErro: message }, companyId);
 
       const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
         documentType: 'NFE',
-        status: 'ERRO',
+        documentNumber: attemptedNumber,
+        series: attemptedSeries,
+        status: 'PENDENTE',
         sefazStatusMessage: message,
         data: { request: payload, error: error?.stack ? String(error.stack) : undefined },
       });
@@ -1076,14 +1144,177 @@ export class SaleService {
       await this.createFiscalEvent(saleId, companyId, {
         fiscalDocumentId: fiscalDoc?.id,
         eventType: 'EMISSAO',
-        eventStatus: 'ERRO',
+        eventStatus: 'PENDENTE',
         eventDate: new Date().toISOString(),
         reason: message,
         data: { error: error?.stack ? String(error.stack) : undefined },
       });
 
-      return { success: false, message };
+      return { success: false, message, attemptedNumber: Number(attemptedNumber), pending: true, requiresConsult: true };
     }
+  }
+
+  /**
+   * Consults SEFAZ (via Brasil NF-e) to find out whether a previously
+   * attempted NFe was in fact authorized. Resolves the PENDENTE_CONSULTA
+   * state by either:
+   *   - committing the number (status='EMITIDA') when SEFAZ confirms
+   *     authorization, or
+   *   - releasing the number (status='REJEITADA') when SEFAZ has no
+   *     record of the document.
+   *
+   * Accepts an optional accessKey (chave) or (series,number) hint; if
+   * none provided we look them up from the last fiscal document attempt
+   * recorded for this sale.
+   */
+  async checkNfeStatus(
+    saleId: string,
+    companyId: string,
+    params: { accessKey?: string; series?: string | number; number?: string | number } = {},
+  ) {
+    if (!companyId) {
+      throw new NotFoundException('Empresa não encontrada');
+    }
+
+    const sale = await this.findById(saleId, companyId);
+    if (!sale) {
+      throw new NotFoundException('Venda não encontrada');
+    }
+
+    let accessKey = params.accessKey ? String(params.accessKey) : sale?.chaveAcesso || null;
+    let series = params.series != null ? String(params.series) : null;
+    let attemptedNumber = params.number != null ? String(params.number) : null;
+
+    if (!accessKey || !series || !attemptedNumber) {
+      const lastAttempt = await this.prisma.sales_fiscal_documents.findFirst({
+        where: { company_id: companyId, sale_id: saleId, document_type: 'NFE' },
+        orderBy: { created_at: 'desc' },
+      });
+      if (lastAttempt) {
+        accessKey = accessKey || lastAttempt.access_key;
+        series = series || lastAttempt.series;
+        attemptedNumber = attemptedNumber || lastAttempt.document_number;
+      }
+    }
+
+    if (!accessKey && !(series && attemptedNumber)) {
+      throw new BadRequestException('Sem chave de acesso ou (série, número) para consultar a SEFAZ.');
+    }
+
+    const token = await this.resolveBrasilNfeToken(companyId);
+    const candidatePaths = accessKey
+      ? [`/BuscarNotaFiscal/${accessKey}`, `/ConsultaNotaFiscal/${accessKey}`, `/ConsultaProtocolo/${accessKey}`]
+      : [
+          `/BuscarNotaFiscal?serie=${encodeURIComponent(series!)}&numero=${encodeURIComponent(attemptedNumber!)}`,
+          `/ConsultaNotaFiscal?serie=${encodeURIComponent(series!)}&numero=${encodeURIComponent(attemptedNumber!)}`,
+        ];
+
+    let responseData: any = null;
+    let httpStatus = 0;
+    let lastMessage = '';
+    for (const path of candidatePaths) {
+      try {
+        const url = this.buildBrasilNfeUrl(path);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json', Token: token },
+        });
+        httpStatus = response.status;
+        responseData = await this.parseProviderResponse(response);
+        if (response.ok) break;
+        lastMessage = responseData?.Error || responseData?.error?.message || response.statusText || '';
+        // 404 likely means "not found", which is a definitive answer too — break.
+        if (response.status === 404) break;
+      } catch (err: any) {
+        lastMessage = err?.message || 'Falha ao consultar SEFAZ.';
+      }
+    }
+
+    const nfe = responseData?.ReturnNF ?? responseData?.Return ?? responseData;
+    const sefazCode = nfe?.CStat != null ? String(nfe.CStat) : '';
+    const sefazMessage =
+      nfe?.DsStatusRespostaSefaz || responseData?.Error || responseData?.error?.message || lastMessage || '';
+    const isAuthorized = sefazCode ? ['100', '150'].includes(sefazCode) : Boolean(nfe?.ChaveNF && nfe?.Numero);
+
+    if (isAuthorized) {
+      const confirmedKey = nfe?.ChaveNF || accessKey;
+      const confirmedNumber = nfe?.Numero || attemptedNumber;
+      const confirmedSeries = nfe?.Serie || series;
+      const protocol = this.asProtocolNumber(nfe);
+
+      await this.updateItem(
+        saleId,
+        {
+          nfeStatus: 'EMITIDA',
+          nfeErro: null,
+          numeroNFe: confirmedNumber,
+          chaveAcesso: confirmedKey,
+          statusSefaz: nfe?.DsStatusRespostaSefaz,
+          dataEmissaoNFe: new Date().toISOString(),
+        },
+        companyId,
+      );
+
+      const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
+        documentType: 'NFE',
+        documentNumber: confirmedNumber,
+        series: confirmedSeries,
+        accessKey: confirmedKey,
+        status: 'EMITIDA',
+        issueDate: new Date().toISOString(),
+        authorizationDate: new Date().toISOString(),
+        sefazStatusCode: sefazCode || null,
+        sefazStatusMessage: sefazMessage,
+        protocolNumber: protocol,
+        data: { consult: responseData, httpStatus },
+      });
+
+      await this.createFiscalEvent(saleId, companyId, {
+        fiscalDocumentId: fiscalDoc?.id,
+        eventType: 'CONSULTA',
+        eventStatus: 'SUCESSO',
+        eventDate: new Date().toISOString(),
+        protocolNumber: protocol,
+        reason: sefazMessage,
+        data: { consult: responseData, httpStatus },
+      });
+
+      return { success: true, authorized: true, number: confirmedNumber, accessKey: confirmedKey, message: sefazMessage };
+    }
+
+    // Not authorized → release the number for reuse.
+    await this.updateItem(
+      saleId,
+      { nfeStatus: 'REJEITADA', nfeErro: sefazMessage || 'NFe não localizada na SEFAZ.' },
+      companyId,
+    );
+
+    const fiscalDoc = await this.upsertFiscalDocument(saleId, companyId, {
+      documentType: 'NFE',
+      documentNumber: attemptedNumber,
+      series,
+      status: 'REJEITADA',
+      sefazStatusCode: sefazCode || null,
+      sefazStatusMessage: sefazMessage || 'NFe não localizada na SEFAZ.',
+      data: { consult: responseData, httpStatus },
+    });
+
+    await this.createFiscalEvent(saleId, companyId, {
+      fiscalDocumentId: fiscalDoc?.id,
+      eventType: 'CONSULTA',
+      eventStatus: 'REJEITADA',
+      eventDate: new Date().toISOString(),
+      reason: sefazMessage || 'NFe não localizada na SEFAZ.',
+      data: { consult: responseData, httpStatus },
+    });
+
+    return {
+      success: true,
+      authorized: false,
+      reusable: true,
+      attemptedNumber: attemptedNumber ? Number(attemptedNumber) : null,
+      message: sefazMessage || 'NFe não localizada na SEFAZ. Número liberado para nova tentativa.',
+    };
   }
 
   async cancelNfe(saleId: string, companyId: string, justificativa: string) {

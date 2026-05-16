@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query } from '@nestjs/common';
 import { SaleService } from './sales.service';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -61,6 +61,25 @@ export class SaleController {
     @Tenant() companyId: string
   ) {
     return this.service.emitNfe(id, companyId, payload);
+  }
+
+  @Get('nfe/next-number')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
+  async getNextNfeNumber(
+    @Tenant() companyId: string,
+    @Query('series') series?: string,
+  ) {
+    return this.service.getNextNfeNumber(companyId, series ?? 1);
+  }
+
+  @Post(':id/nfe/check')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async checkNfe(
+    @Param('id') id: string,
+    @Body() payload: { accessKey?: string; series?: string | number; number?: string | number } = {},
+    @Tenant() companyId: string,
+  ) {
+    return this.service.checkNfeStatus(id, companyId, payload || {});
   }
 
   @Post(':id/nfe/cancel')
