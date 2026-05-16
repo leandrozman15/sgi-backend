@@ -20,6 +20,176 @@ export class WarehouseTraceabilityService {
     return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
   }
 
+  /**
+   * Returns the id of a guaranteed-existing default storage position for the
+   * tenant, creating the underlying layout / zone / position on demand. Used
+   * to keep `inventory_stock_balances` rows in sync even when callers don't
+   * provide an explicit `source_position_id` / `destination_position_id`.
+   *
+   * Codes used: layout=DEFAULT, zone=DEFAULT, position=DEFAULT.
+   */
+  private async getOrCreateDefaultPositionId(companyId: string): Promise<string> {
+    const existingPos = await this.prisma.inventory_storage_positions.findFirst({
+      where: { company_id: companyId, code: 'DEFAULT' },
+      select: { id: true },
+    });
+    if (existingPos) return existingPos.id;
+
+    let layout = await this.prisma.inventory_warehouse_layouts.findFirst({
+      where: { company_id: companyId, code: 'DEFAULT' },
+      select: { id: true },
+    });
+    if (!layout) {
+      layout = await this.prisma.inventory_warehouse_layouts.create({
+        data: {
+          id: randomUUID(),
+          company_id: companyId,
+          code: 'DEFAULT',
+          name: 'Depósito Padrão',
+          description: 'Layout padrão criado automaticamente para rastreabilidade.',
+          status: 'active',
+        },
+        select: { id: true },
+      });
+    }
+
+    let zone = await this.prisma.inventory_storage_zones.findFirst({
+      where: { company_id: companyId, warehouse_layout_id: layout.id, code: 'DEFAULT' },
+      select: { id: true },
+    });
+    if (!zone) {
+      zone = await this.prisma.inventory_storage_zones.create({
+        data: {
+          id: randomUUID(),
+          company_id: companyId,
+          warehouse_layout_id: layout.id,
+          code: 'DEFAULT',
+          name: 'Zona Padrão',
+          status: 'active',
+        },
+        select: { id: true },
+      });
+    }
+
+    const position = await this.prisma.inventory_storage_positions.create({
+      data: {
+        id: randomUUID(),
+        company_id: companyId,
+        zone_id: zone.id,
+        code: 'DEFAULT',
+        status: 'available',
+        position_type: 'virtual',
+      },
+      select: { id: true },
+    });
+    return position.id;
+  }
+
+  /**
+   * Upsert a `inventory_stock_balances` row applying a signed `delta` to
+   * `quantity_on_hand`. Idempotent on the (company, lot, position) unique key.
+   * Best-effort: errors are swallowed so the parent movement insert is not
+   * rolled back if the balance bookkeeping fails for any reason.
+   */
+  private async applyBalanceDelta(
+    companyId: string,
+    lotId: string,
+    positionId: string,
+    delta: number,
+  ): Promise<void> {
+    if (!lotId || !positionId || !delta) return;
+    try {
+      const existing = await this.prisma.inventory_stock_balances.findFirst({
+        where: { company_id: companyId, lot_id: lotId, storage_position_id: positionId },
+        select: { id: true, quantity_on_hand: true, quantity_reserved: true },
+      });
+      if (existing) {
+        const currentOnHand = Number(existing.quantity_on_hand ?? 0);
+        const currentReserved = Number(existing.quantity_reserved ?? 0);
+        const nextOnHand = Math.max(0, currentOnHand + delta);
+        const nextAvailable = Math.max(0, nextOnHand - currentReserved);
+        await this.prisma.inventory_stock_balances.update({
+          where: { id: existing.id },
+          data: {
+            quantity_on_hand: nextOnHand as any,
+            quantity_available: nextAvailable as any,
+            updated_at: new Date(),
+          },
+        });
+      } else {
+        const nextOnHand = Math.max(0, delta);
+        await this.prisma.inventory_stock_balances.create({
+          data: {
+            id: randomUUID(),
+            company_id: companyId,
+            lot_id: lotId,
+            storage_position_id: positionId,
+            quantity_on_hand: nextOnHand as any,
+            quantity_reserved: 0 as any,
+            quantity_available: nextOnHand as any,
+          },
+        });
+      }
+    } catch {
+      // Best-effort: never fail the parent operation because of balances.
+    }
+  }
+
+  /**
+   * Apply the side effects of a movement on `inventory_stock_balances`.
+   * Falls back to the company's DEFAULT position when no source/destination
+   * is provided by the caller.
+   */
+  private async syncBalancesForMovement(
+    companyId: string,
+    data: { lot_id: string; movement_type: string; quantity: number; source_position_id?: string | null; destination_position_id?: string | null },
+  ): Promise<void> {
+    try {
+      const type = String(data.movement_type || '').toLowerCase();
+      const qty = Number(data.quantity ?? 0);
+      if (!qty) return;
+
+      let dest = data.destination_position_id ?? null;
+      let src = data.source_position_id ?? null;
+
+      const needsDest = type === 'entrada' || (type === 'transferencia' && !dest);
+      const needsSrc = type === 'saida' || (type === 'transferencia' && !src);
+      const needsAdjustTarget = type === 'ajuste' && !dest && !src;
+
+      if (needsDest && !dest) dest = await this.getOrCreateDefaultPositionId(companyId);
+      if (needsSrc && !src) src = await this.getOrCreateDefaultPositionId(companyId);
+      if (needsAdjustTarget) dest = await this.getOrCreateDefaultPositionId(companyId);
+
+      switch (type) {
+        case 'entrada':
+          if (dest) await this.applyBalanceDelta(companyId, data.lot_id, dest, qty);
+          break;
+        case 'saida':
+          if (src) await this.applyBalanceDelta(companyId, data.lot_id, src, -qty);
+          break;
+        case 'transferencia':
+          if (src && dest && src !== dest) {
+            await this.applyBalanceDelta(companyId, data.lot_id, src, -qty);
+            await this.applyBalanceDelta(companyId, data.lot_id, dest, qty);
+          } else if (dest && !src) {
+            await this.applyBalanceDelta(companyId, data.lot_id, dest, qty);
+          } else if (src && !dest) {
+            await this.applyBalanceDelta(companyId, data.lot_id, src, -qty);
+          }
+          break;
+        case 'ajuste':
+          if (dest) await this.applyBalanceDelta(companyId, data.lot_id, dest, qty);
+          else if (src) await this.applyBalanceDelta(companyId, data.lot_id, src, qty);
+          break;
+        default:
+          // Unknown movement_type: do nothing.
+          break;
+      }
+    } catch {
+      // Best-effort.
+    }
+  }
+
   async listLots(companyId: string, query: any) {
     if (!companyId) return [];
 
@@ -281,7 +451,7 @@ export class WarehouseTraceabilityService {
       throw new NotFoundException('lot_id, movement_type e quantity são obrigatórios');
     }
 
-    return this.prisma.inventory_lot_movements.create({
+    const created = await this.prisma.inventory_lot_movements.create({
       data: {
         id: randomUUID(),
         company_id: companyId,
@@ -300,6 +470,17 @@ export class WarehouseTraceabilityService {
         metadata: data.metadata ?? null,
       },
     });
+
+    // Keep inventory_stock_balances in sync (best-effort).
+    await this.syncBalancesForMovement(companyId, {
+      lot_id: data.lot_id,
+      movement_type: data.movement_type,
+      quantity: Number(data.quantity),
+      source_position_id: data.source_position_id ?? null,
+      destination_position_id: data.destination_position_id ?? null,
+    });
+
+    return created;
   }
 
   async updateMovement(id: string, data: any, companyId: string) {
