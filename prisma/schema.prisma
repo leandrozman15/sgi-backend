@@ -795,6 +795,18 @@ model sales_nfse_events {
   @@index([event_date])
 }
 
+model customer_orders {
+  id        String    @id(map: "CustomerOrder_pkey")
+  companyId String
+  data      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  deletedAt DateTime?
+
+  @@index([companyId], map: "CustomerOrder_companyId_idx")
+  @@index([companyId, deletedAt], map: "CustomerOrder_companyId_deletedAt_idx")
+}
+
 model accounting_fiscal_periods {
   id                 String                           @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id         String
