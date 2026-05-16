@@ -285,6 +285,65 @@ export class RawMaterialService {
     return this.toClientRawMaterial(updated);
   }
 
+  async adjustStock(
+    id: string,
+    companyId: string,
+    payload: { currentStock?: number; minStock?: number; maxStock?: number; reason?: string },
+  ) {
+    if (!companyId) throw new NotFoundException('Empresa não encontrada');
+
+    const existing = await this.prisma.raw_materials.findFirst({
+      where: { id, companyId },
+    });
+    if (!existing) throw new NotFoundException('Matéria-prima não encontrada');
+
+    const extra = {
+      ...(existing?.data && typeof existing.data === 'object' ? existing.data : {}),
+      ...(payload.minStock !== undefined ? { minStock: payload.minStock } : {}),
+      ...(payload.maxStock !== undefined ? { maxStock: payload.maxStock } : {}),
+    };
+
+    const updated = await this.prisma.raw_materials.update({
+      where: { id },
+      data: {
+        ...(payload.currentStock !== undefined
+          ? { currentStock: this.toNumberOrNull(payload.currentStock) as any }
+          : {}),
+        ...(payload.minStock !== undefined
+          ? { minStock: this.toNumberOrNull(payload.minStock) }
+          : {}),
+        ...(payload.maxStock !== undefined
+          ? { maxStock: this.toNumberOrNull(payload.maxStock) }
+          : {}),
+        data: Object.keys(extra).length > 0 ? extra : undefined,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Audit trail (best-effort — never block the stock update).
+    try {
+      await this.prisma.inventory_movements.create({
+        data: {
+          id: randomUUID(),
+          companyId,
+          data: {
+            rawMaterialId: id,
+            itemType: 'materia-prima',
+            type: 'Ajuste',
+            quantity: payload.currentStock,
+            reason: payload.reason || 'Ajuste manual de estoque',
+            itemName: existing.nome,
+          },
+          updatedAt: new Date(),
+        },
+      });
+    } catch {
+      // swallow — the stock change already persisted
+    }
+
+    return this.toClientRawMaterial(updated);
+  }
+
   async deleteItem(id: string, companyId: string) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
