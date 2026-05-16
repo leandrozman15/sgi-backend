@@ -26,6 +26,7 @@ import { WarehouseLocationModule } from './warehouse/warehouse.module';
 import { PurchaseRequestModule } from './purchase-requests/purchase-requests.module';
 import { PurchaseOrderModule } from './purchase-orders/purchase-orders.module';
 import { CustomerOrderModule } from './customer-orders/customer-orders.module';
+import { NumberSequenceModule } from './number-sequences/number-sequences.module';
 import { WorkAccidentModule } from './hr-extras/hr-extras.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { AccountingModule } from './accounting/accounting.module';
@@ -84,6 +85,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     PurchaseRequestModule,
     PurchaseOrderModule,
     CustomerOrderModule,
+    NumberSequenceModule,
     WorkAccidentModule,
     MaintenanceModule,
     AccountingModule,

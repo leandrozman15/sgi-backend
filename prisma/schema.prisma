@@ -1896,3 +1896,21 @@ model expeditions {
   @@index([companyId, dataExpedicao], map: "Expedition_companyId_dataExpedicao_idx")
   @@index([pedidoId], map: "Expedition_pedidoId_idx")
 }
+
+model number_sequences {
+  id            String   @id @default(cuid())
+  companyId     String
+  key           String
+  name          String
+  prefix        String   @default("")
+  suffix        String   @default("")
+  padding       Int      @default(5)
+  currentNumber Int      @default(0)
+  lastUsedAt    DateTime?
+  lastUsedBy    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([companyId, key], map: "NumberSequence_company_key_unique")
+  @@index([companyId], map: "NumberSequence_companyId_idx")
+}
