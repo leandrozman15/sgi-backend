@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ProductionOrderService } from '../production-orders/production-orders.service';
 import { PurchaseOrderService } from '../purchase-orders/purchase-orders.service';
+import { NumberSequenceService } from '../number-sequences/number-sequences.service';
 
 type Item = {
   id?: string;
@@ -33,6 +34,7 @@ export class CustomerOrderService {
     private readonly prisma: PrismaService,
     private readonly productionOrders: ProductionOrderService,
     private readonly purchaseOrders: PurchaseOrderService,
+    private readonly numberSequences: NumberSequenceService,
   ) {}
 
   // ──────────────────────────── helpers ───────────────────────────────────
@@ -96,8 +98,24 @@ export class CustomerOrderService {
     const itens = this.ensureItemsHaveIds(normalized.itens || normalized.items || []);
     const totals = this.computeTotals(itens);
 
+    // Auto-allocate sequential numero if not provided.
+    let numero = normalized.numero || normalized.numeroPedido || null;
+    if (!numero) {
+      try {
+        const allocated = await this.numberSequences.allocate(
+          companyId,
+          'customer_order',
+          null,
+        );
+        numero = allocated.formatted;
+      } catch {
+        // fall back to undefined; UI will show id slice
+      }
+    }
+
     const data = {
       ...normalized,
+      ...(numero ? { numero } : {}),
       itens,
       totals,
       status: normalized.status || STATUS_RASCUNHO,

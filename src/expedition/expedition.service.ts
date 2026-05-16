@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { NumberSequenceService } from '../number-sequences/number-sequences.service';
 import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ExpeditionService {
-  private prisma: PrismaService;
-
-  constructor(prisma: PrismaService) {
-    this.prisma = prisma;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly numberSequences: NumberSequenceService,
+  ) {}
 
   async findByCompany(companyId: string, limit?: number) {
     if (!companyId) return [];
@@ -44,6 +44,19 @@ export class ExpeditionService {
     }
 
     const now = new Date();
+    let numeroGuia = data.numeroGuia ?? null;
+    if (!numeroGuia) {
+      try {
+        const allocated = await this.numberSequences.allocate(
+          companyId,
+          'expedition',
+          data.createdBy ?? null,
+        );
+        numeroGuia = allocated.formatted;
+      } catch {
+        // leave null
+      }
+    }
     const created = await this.prisma.expeditions.create({
       data: {
         id: randomUUID(),
@@ -55,7 +68,7 @@ export class ExpeditionService {
         status: data.status ?? 'Pendente',
         tipoEnvio: String(data.tipoEnvio),
         transportadoraNome: data.transportadoraNome ?? null,
-        numeroGuia: data.numeroGuia ?? null,
+        numeroGuia,
         modalidadeFrete: data.modalidadeFrete ?? null,
         placaVeiculo: data.placaVeiculo ?? null,
         observacoes: data.observacoes ?? null,
