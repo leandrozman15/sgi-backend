@@ -4,7 +4,9 @@ import {
   Delete,
   Get,
   Param,
+  Post,
   Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { NumberSequenceService } from './number-sequences.service';
@@ -39,5 +41,40 @@ export class NumberSequenceController {
   @Roles(UserRole.MASTER, UserRole.ADMIN)
   async remove(@Param('key') key: string, @Tenant() companyId: string) {
     return this.service.remove(companyId, key);
+  }
+
+  @Get(':key/peek')
+  @Roles(
+    UserRole.MASTER,
+    UserRole.ADMIN,
+    UserRole.GERENTE,
+    UserRole.SUPERVISOR,
+    UserRole.OPERADOR,
+    UserRole.CONSULTOR,
+  )
+  async peek(@Param('key') key: string, @Tenant() companyId: string) {
+    return this.service.peek(companyId, key);
+  }
+
+  @Post(':key/allocate')
+  @Roles(
+    UserRole.MASTER,
+    UserRole.ADMIN,
+    UserRole.GERENTE,
+    UserRole.SUPERVISOR,
+    UserRole.OPERADOR,
+  )
+  async allocate(
+    @Param('key') key: string,
+    @Tenant() companyId: string,
+    @Req() req: any,
+  ) {
+    const userId =
+      req?.user?.uid ||
+      req?.user?.userId ||
+      req?.user?.id ||
+      req?.user?.email ||
+      null;
+    return this.service.allocate(companyId, key, userId);
   }
 }

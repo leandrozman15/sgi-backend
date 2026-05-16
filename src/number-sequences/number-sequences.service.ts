@@ -368,4 +368,129 @@ export class NumberSequenceService {
     await this.prisma.number_sequences.delete({ where: { id: existing.id } });
     return { ok: true };
   }
+
+  // ─── allocation ───────────────────────────────────────────────────────
+
+  /**
+   * Resolves a sequence key into its catalog entry (catalog static keys
+   * and NFe per-series via 'nfe:<series>').
+   */
+  private resolveDefaults(key: string) {
+    if (this.catalog[key]) {
+      const def = this.catalog[key];
+      return {
+        name: def.name,
+        prefix: def.defaultPrefix,
+        suffix: '',
+        padding: def.defaultPadding,
+        scan: def.scan,
+      };
+    }
+    if (key.startsWith('nfe:')) {
+      const series = key.slice(4);
+      return {
+        name: `NFe — Série ${series}`,
+        prefix: '',
+        suffix: '',
+        padding: 1,
+        scan: (companyId: string) => this.scanNfe(companyId, series),
+      };
+    }
+    return {
+      name: key,
+      prefix: '',
+      suffix: '',
+      padding: 5,
+      scan: undefined as undefined | ((companyId: string) => Promise<ScanResult>),
+    };
+  }
+
+  /**
+   * Computes (without consuming) the next formatted number for a key.
+   * Useful for previews. Returns floor = max(registry.currentNumber, liveMax).
+   */
+  async peek(companyId: string, key: string) {
+    const def = this.resolveDefaults(key);
+    const reg = await this.prisma.number_sequences.findUnique({
+      where: { companyId_key: { companyId, key } } as any,
+    });
+    const liveMax = def.scan ? ((await def.scan(companyId).catch(() => null))?.max ?? 0) : 0;
+    const current = Math.max(reg?.currentNumber ?? 0, liveMax);
+    const prefix = reg?.prefix ?? def.prefix;
+    const suffix = reg?.suffix ?? def.suffix;
+    const padding = reg?.padding ?? def.padding;
+    const next = current + 1;
+    return {
+      key,
+      next,
+      prefix,
+      suffix,
+      padding,
+      formatted: this.format(prefix, padding, suffix, next),
+    };
+  }
+
+  /**
+   * Atomically allocates the next number for a key, persisting the new
+   * currentNumber and last-used metadata on the registry row.
+   * The "floor" considers both the registry counter and the live max
+   * derived from underlying tables — so the sequence never goes
+   * backwards even if the registry was created/edited after some
+   * documents were already issued.
+   */
+  async allocate(companyId: string, key: string, userId?: string | null) {
+    if (!companyId || !key) throw new NotFoundException('companyId and key are required');
+    const def = this.resolveDefaults(key);
+    const liveMax = def.scan ? ((await def.scan(companyId).catch(() => null))?.max ?? 0) : 0;
+    const existing = await this.prisma.number_sequences.findUnique({
+      where: { companyId_key: { companyId, key } } as any,
+    });
+    const prefix = existing?.prefix ?? def.prefix;
+    const suffix = existing?.suffix ?? def.suffix;
+    const padding = existing?.padding ?? def.padding;
+    const current = Math.max(existing?.currentNumber ?? 0, liveMax);
+    const next = current + 1;
+    const now = new Date();
+    if (existing) {
+      await this.prisma.number_sequences.update({
+        where: { id: existing.id },
+        data: { currentNumber: next, lastUsedAt: now, lastUsedBy: userId ?? null },
+      });
+    } else {
+      await this.prisma.number_sequences.create({
+        data: {
+          companyId,
+          key,
+          name: def.name,
+          prefix,
+          suffix,
+          padding,
+          currentNumber: next,
+          lastUsedAt: now,
+          lastUsedBy: userId ?? null,
+        },
+      });
+    }
+    return {
+      key,
+      next,
+      prefix,
+      suffix,
+      padding,
+      formatted: this.format(prefix, padding, suffix, next),
+    };
+  }
+
+  /**
+   * Returns the registry "floor" for a key as a number (or 0 if none).
+   * Used by external services (e.g. NFe) to honor user-set overrides
+   * without committing the number — the actual commit happens when
+   * SEFAZ authorizes.
+   */
+  async getFloor(companyId: string, key: string): Promise<number> {
+    const reg = await this.prisma.number_sequences.findUnique({
+      where: { companyId_key: { companyId, key } } as any,
+    });
+    return reg?.currentNumber ?? 0;
+  }
 }

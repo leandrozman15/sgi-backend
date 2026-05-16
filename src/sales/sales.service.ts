@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { NumberSequenceService } from '../number-sequences/number-sequences.service';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class SaleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly numberSequences: NumberSequenceService,
   ) {}
 
   private getBrasilNfeToken(): string {
@@ -87,7 +89,11 @@ export class SaleService {
       const n = Number(r.document_number);
       if (Number.isFinite(n) && n > max) max = n;
     }
-    return max + 1;
+    // Honor user-set override via number-sequences registry (acts as a floor)
+    const floor = await this.numberSequences
+      .getFloor(companyId, `nfe:${seriesStr}`)
+      .catch(() => 0);
+    return Math.max(max, floor) + 1;
   }
 
   async getNextNfeNumber(companyId: string, series: number | string = 1) {
