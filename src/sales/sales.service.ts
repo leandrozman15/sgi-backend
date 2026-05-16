@@ -1092,6 +1092,7 @@ export class SaleService {
       await this.updateItem(saleId, {
         nfeStatus: 'EMITIDA',
         numeroNFe: nfe?.Numero,
+        numeroDocumento: nfe?.Numero,
         chaveAcesso: nfe?.ChaveNF,
         pdfNFe: responseData?.Base64File,
         xmlNFe: responseData?.Base64Xml,
@@ -1254,6 +1255,7 @@ export class SaleService {
           nfeStatus: 'EMITIDA',
           nfeErro: null,
           numeroNFe: confirmedNumber,
+          numeroDocumento: confirmedNumber,
           chaveAcesso: confirmedKey,
           statusSefaz: nfe?.DsStatusRespostaSefaz,
           dataEmissaoNFe: new Date().toISOString(),
