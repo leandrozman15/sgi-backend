@@ -83,7 +83,7 @@ export class ProductionOrderService {
       );
     }
 
-    return this.prisma.production_orders.create({
+    const created = await this.prisma.production_orders.create({
       data: {
         id: randomUUID(),
         number: payload.number,
@@ -95,6 +95,66 @@ export class ProductionOrderService {
         data: payload,
         updated_at: new Date(),
       },
+    });
+
+    // Link back to source customer order item, if provided
+    const sourceCustomerOrderId =
+      payload?.sourceCustomerOrderId || payload?.source_customer_order_id;
+    const sourceCustomerOrderItemId =
+      payload?.sourceCustomerOrderItemId || payload?.source_customer_order_item_id;
+    if (sourceCustomerOrderId && sourceCustomerOrderItemId) {
+      try {
+        await this.linkToCustomerOrderItem(
+          String(sourceCustomerOrderId),
+          String(sourceCustomerOrderItemId),
+          created.id,
+          companyId,
+        );
+      } catch (err) {
+        // Don't fail the OP creation if linking fails; log only.
+        console.error('Falha ao vincular OP ao item do pedido de cliente:', err);
+      }
+    }
+
+    return created;
+  }
+
+  private async linkToCustomerOrderItem(
+    customerOrderId: string,
+    customerOrderItemId: string,
+    productionOrderId: string,
+    companyId: string,
+  ) {
+    const order = await this.prisma.customer_orders.findFirst({
+      where: { id: customerOrderId, companyId, deletedAt: null },
+    });
+    if (!order) return;
+
+    const data: any = (order.data as any) || {};
+    const itens: any[] = Array.isArray(data.itens)
+      ? data.itens
+      : Array.isArray(data.items)
+        ? data.items
+        : [];
+    let touched = false;
+    const nextItens = itens.map((it) => {
+      if (it && it.id === customerOrderItemId) {
+        touched = true;
+        return {
+          ...it,
+          sourceType: 'producir',
+          linkedProductionOrderId: productionOrderId,
+          status: 'OP_GERADA',
+        };
+      }
+      return it;
+    });
+    if (!touched) return;
+
+    const nextData = { ...data, itens: nextItens };
+    await this.prisma.customer_orders.update({
+      where: { id: customerOrderId },
+      data: { data: nextData, updatedAt: new Date() },
     });
   }
 
