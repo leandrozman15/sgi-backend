@@ -292,6 +292,20 @@ export class ProductionOrderService {
 
     const bultos: any[] = Array.isArray(existingData.bultos) ? existingData.bultos : [];
 
+    const items: any[] = Array.isArray(bultoDto.items)
+      ? bultoDto.items
+          .filter((it: any) => it && it.productId)
+          .map((it: any) => ({
+            productId: String(it.productId),
+            productName: it.productName ?? null,
+            quantidade: Number(it.quantidade ?? 0),
+            pesoLiquido:
+              it.pesoLiquido !== undefined && it.pesoLiquido !== null
+                ? Number(it.pesoLiquido)
+                : null,
+          }))
+      : [];
+
     const newBulto = {
       id: randomUUID(),
       code: `BX-${String(bultos.length + 1).padStart(3, '0')}`,
@@ -304,6 +318,7 @@ export class ProductionOrderService {
       largura: Number(bultoDto.largura ?? 0),
       altura: Number(bultoDto.altura ?? 0),
       profundidade: Number(bultoDto.profundidade ?? 0),
+      items,
       createdAt: new Date().toISOString(),
     };
 
