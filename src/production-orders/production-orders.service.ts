@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { InventoryApplicationService } from '../inventory/inventory-application.service';
 import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ProductionOrderService {
-  private prisma: PrismaService;
-
-  constructor(prisma: PrismaService) {
-    this.prisma = prisma;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly inventoryApplication: InventoryApplicationService,
+  ) {}
 
   async findByCompany(companyId: string) {
     if (!companyId) {
@@ -226,6 +226,20 @@ export class ProductionOrderService {
         ...(payload !== undefined ? { data: nextData } : {}),
         updated_at: new Date(),
       },
+    }).then(async (updated) => {
+      // Aplica efeitos no estoque quando a OP é concluída
+      const wasCompleted = String(existing.status || '').toLowerCase() === 'concluída'
+        || String(existing.status || '').toLowerCase() === 'concluida';
+      const isCompleted = String(updated.status || '').toLowerCase() === 'concluída'
+        || String(updated.status || '').toLowerCase() === 'concluida';
+      if (!wasCompleted && isCompleted) {
+        try {
+          await this.inventoryApplication.applyProductionCompletion(updated.id, companyId);
+        } catch (err) {
+          console.error('Falha ao aplicar estoque para OP concluída:', err);
+        }
+      }
+      return updated;
     });
   }
 

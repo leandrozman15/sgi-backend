@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { NumberSequenceService } from '../number-sequences/number-sequences.service';
+import { InventoryApplicationService } from '../inventory/inventory-application.service';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class ExpeditionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly numberSequences: NumberSequenceService,
+    private readonly inventoryApplication: InventoryApplicationService,
   ) {}
 
   async findByCompany(companyId: string, limit?: number) {
@@ -83,6 +85,16 @@ export class ExpeditionService {
         createdBy: data.createdBy ?? null,
       },
     });
+
+    // Se já criada como "Despachado", aplica saída de estoque
+    try {
+      if (String(created.status || '').toLowerCase() === 'despachado') {
+        await this.inventoryApplication.applyExpeditionDelivery(created.id, companyId);
+      }
+    } catch (err) {
+      console.error('Falha ao aplicar estoque para expedição criada já despachada:', err);
+    }
+
     return this.serialize(created);
   }
 
@@ -92,7 +104,7 @@ export class ExpeditionService {
     }
     const existing = await this.prisma.expeditions.findFirst({
       where: { id, companyId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existing) {
       throw new NotFoundException('Expedição não encontrada.');
@@ -129,6 +141,19 @@ export class ExpeditionService {
       where: { id },
       data: updateData,
     });
+
+    // Aplica saída de estoque quando expedição passa a "Despachado"
+    try {
+      const becameDespachado =
+        String(updated.status || '').toLowerCase() === 'despachado' &&
+        String(existing.status || '').toLowerCase() !== 'despachado';
+      if (becameDespachado) {
+        await this.inventoryApplication.applyExpeditionDelivery(updated.id, companyId);
+      }
+    } catch (err) {
+      console.error('Falha ao aplicar estoque para expedição despachada:', err);
+    }
+
     return this.serialize(updated);
   }
 
