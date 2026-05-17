@@ -239,6 +239,14 @@ export class ProductionOrderService {
           console.error('Falha ao aplicar estoque para OP concluída:', err);
         }
       }
+      // Reverte estoque quando a OP é reaberta/cancelada após já ter sido concluída
+      if (wasCompleted && !isCompleted) {
+        try {
+          await this.inventoryApplication.reverseProductionCompletion(updated.id, companyId);
+        } catch (err) {
+          console.error('Falha ao reverter estoque para OP reaberta:', err);
+        }
+      }
       return updated;
     });
   }

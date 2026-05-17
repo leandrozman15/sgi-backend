@@ -128,14 +128,43 @@ export class InventoryApplicationService {
     }
   }
 
-  // ─── Internals ───────────────────────────────────────────────────────────
+  /**
+   * Reverte os movimentos aplicados para uma referência (OP reaberta ou expedição cancelada).
+   * Lê todos os movimentos originais e aplica deltas opostos no estoque.
+   * Idempotente: se já existir reversão registrada, não faz nada.
+   */
+  async reverseProductionCompletion(orderId: string, companyId: string) {
+    return this.reverseReference(companyId, 'production_order', orderId, `OP ${orderId}`);
+  }
 
-  private async hasMovementsForReference(
+  async reverseExpeditionDelivery(expeditionId: string, companyId: string) {
+    return this.reverseReference(companyId, 'expedition', expeditionId, `Expedição ${expeditionId}`);
+  }
+
+  private async reverseReference(
     companyId: string,
     referenceType: string,
     referenceId: string,
-  ): Promise<boolean> {
-    const existing = await this.prisma.inventory_movements.findFirst({
+    label: string,
+  ) {
+    // Idempotência: se já houver reversão, não faz nada
+    const alreadyReversed = await this.prisma.inventory_movements.findFirst({
+      where: {
+        companyId,
+        AND: [
+          { data: { path: ['referenceType'], equals: referenceType } },
+          { data: { path: ['referenceId'], equals: referenceId } },
+          { data: { path: ['reversal'], equals: true } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (alreadyReversed) {
+      this.logger.log(`${label} já revertida — ignorando.`);
+      return;
+    }
+
+    const movements = await this.prisma.inventory_movements.findMany({
       where: {
         companyId,
         AND: [
@@ -143,9 +172,77 @@ export class InventoryApplicationService {
           { data: { path: ['referenceId'], equals: referenceId } },
         ],
       },
-      select: { id: true },
     });
-    return Boolean(existing);
+    if (!movements.length) {
+      this.logger.log(`${label} sem movimentos para reverter.`);
+      return;
+    }
+
+    for (const mv of movements) {
+      const payload = (mv.data as any) || {};
+      if (payload.reversal) continue;
+      const type = String(payload.type || '');
+      const qty = Number(payload.quantity ?? 0);
+      if (!qty || qty <= 0) continue;
+
+      // Calcula delta inverso por tipo de movimento original
+      if (type === 'PRODUCTION_IN' && payload.productId) {
+        await this.applyProductDelta(companyId, String(payload.productId), -qty);
+      } else if (type === 'SALE_OUT' && payload.productId) {
+        await this.applyProductDelta(companyId, String(payload.productId), +qty);
+      } else if (type === 'RAW_OUT' && payload.rawMaterialId) {
+        await this.applyRawMaterialDelta(companyId, String(payload.rawMaterialId), +qty);
+      } else {
+        continue;
+      }
+
+      await this.createMovement(companyId, {
+        type: `${type}_REVERSAL`,
+        productId: payload.productId || null,
+        rawMaterialId: payload.rawMaterialId || null,
+        productName: payload.productName || null,
+        rawMaterialName: payload.rawMaterialName || null,
+        quantity: qty,
+        unit: payload.unit || 'un',
+        referenceType,
+        referenceId,
+        reversal: true,
+        originalMovementId: mv.id,
+        notes: `Reversão automática (${label})`,
+      });
+
+      // Marca o movimento original como revertido (para que hasMovementsForReference o ignore)
+      await this.prisma.inventory_movements.update({
+        where: { id: mv.id },
+        data: {
+          data: { ...payload, reversed: true, reversedAt: new Date().toISOString() },
+          updatedAt: new Date(),
+        },
+      });
+    }
+  }
+
+  // ─── Internals ───────────────────────────────────────────────────────────
+
+  private async hasMovementsForReference(
+    companyId: string,
+    referenceType: string,
+    referenceId: string,
+  ): Promise<boolean> {
+    // Considera apenas movimentos "ativos" (não reversais e não revertidos)
+    const rows = await this.prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM inventory_movements
+       WHERE "companyId" = $1
+         AND data->>'referenceType' = $2
+         AND data->>'referenceId' = $3
+         AND COALESCE((data->>'reversal')::text, '') <> 'true'
+         AND COALESCE((data->>'reversed')::text, '') <> 'true'
+       LIMIT 1`,
+      companyId,
+      referenceType,
+      referenceId,
+    );
+    return rows.length > 0;
   }
 
   private async createMovement(companyId: string, payload: Record<string, any>) {

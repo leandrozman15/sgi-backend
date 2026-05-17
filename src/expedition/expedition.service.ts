@@ -150,8 +150,14 @@ export class ExpeditionService {
       if (becameDespachado) {
         await this.inventoryApplication.applyExpeditionDelivery(updated.id, companyId);
       }
+      // Reverte estoque se uma expedição já despachada for revertida (cancelada/erro/pendente)
+      const wasDespachado = String(existing.status || '').toLowerCase() === 'despachado';
+      const isDespachado = String(updated.status || '').toLowerCase() === 'despachado';
+      if (wasDespachado && !isDespachado) {
+        await this.inventoryApplication.reverseExpeditionDelivery(updated.id, companyId);
+      }
     } catch (err) {
-      console.error('Falha ao aplicar estoque para expedição despachada:', err);
+      console.error('Falha ao aplicar/reverter estoque para expedição:', err);
     }
 
     return this.serialize(updated);
@@ -163,7 +169,7 @@ export class ExpeditionService {
     }
     const existing = await this.prisma.expeditions.findFirst({
       where: { id, companyId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existing) {
       throw new NotFoundException('Expedição não encontrada.');
@@ -172,6 +178,14 @@ export class ExpeditionService {
       where: { id },
       data: { deletedAt: new Date(), updatedAt: new Date() },
     });
+    // Se a expedição já tinha sido despachada, reverte saída de estoque
+    try {
+      if (String(existing.status || '').toLowerCase() === 'despachado') {
+        await this.inventoryApplication.reverseExpeditionDelivery(id, companyId);
+      }
+    } catch (err) {
+      console.error('Falha ao reverter estoque na exclusão da expedição:', err);
+    }
     return { success: true };
   }
 
