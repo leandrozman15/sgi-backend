@@ -183,6 +183,26 @@ export class SaleController {
     return this.service.generateFci(companyId, payload);
   }
 
+  @Get('tax-summary')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.CONSULTOR)
+  async getTaxSummary(
+    @Tenant() companyId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.getTaxSummary(companyId, startDate, endDate);
+  }
+
+  @Get('journal')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.CONSULTOR)
+  async getSalesJournal(
+    @Tenant() companyId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.getSalesJournal(companyId, startDate, endDate);
+  }
+
   @Get(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
   async findOne(@Param('id') id: string, @Tenant() companyId: string) {

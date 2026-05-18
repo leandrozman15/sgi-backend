@@ -1607,4 +1607,89 @@ export class SaleService {
 
     return { id };
   }
+
+  private parsePeriod(startDate?: string, endDate?: string): { start: Date; end: Date } {
+    const now = new Date();
+    const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+
+    const start = startDate ? new Date(startDate) : defaultStart;
+    const end = endDate ? new Date(endDate) : defaultEnd;
+
+    return {
+      start: isNaN(start.getTime()) ? defaultStart : start,
+      end: isNaN(end.getTime()) ? defaultEnd : end,
+    };
+  }
+
+  private toNumber(value: any): number {
+    if (value === null || value === undefined || value === '') return 0;
+    const n = typeof value === 'number' ? value : Number(String(value).replace(',', '.'));
+    return isNaN(n) ? 0 : n;
+  }
+
+  async getTaxSummary(companyId: string, startDate?: string, endDate?: string) {
+    if (!companyId) {
+      return { icms: 0, ipi: 0, pis: 0, cofins: 0, totalBase: 0, count: 0 };
+    }
+
+    const { start, end } = this.parsePeriod(startDate, endDate);
+
+    const rows = await this.prisma.sales.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        createdAt: { gte: start, lte: end },
+      },
+      select: { data: true },
+    });
+
+    const totals = rows.reduce(
+      (acc, row) => {
+        const d = (row?.data && typeof row.data === 'object' ? row.data : {}) as Record<string, any>;
+        acc.icms += this.toNumber(d.valorIcms ?? d.icms);
+        acc.ipi += this.toNumber(d.valorIpi ?? d.ipi);
+        acc.pis += this.toNumber(d.valorPis ?? d.pis);
+        acc.cofins += this.toNumber(d.valorCofins ?? d.cofins);
+        acc.totalBase += this.toNumber(d.valorBcIcms ?? d.baseCalculoIcms ?? d.valorTotal ?? d.total);
+        return acc;
+      },
+      { icms: 0, ipi: 0, pis: 0, cofins: 0, totalBase: 0 },
+    );
+
+    return { ...totals, count: rows.length };
+  }
+
+  async getSalesJournal(companyId: string, startDate?: string, endDate?: string) {
+    if (!companyId) return [];
+
+    const { start, end } = this.parsePeriod(startDate, endDate);
+
+    const rows = await this.prisma.sales.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        createdAt: { gte: start, lte: end },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return rows.map((row) => {
+      const d = (row?.data && typeof row.data === 'object' ? row.data : {}) as Record<string, any>;
+      return {
+        id: row.id,
+        createdAt: row.createdAt,
+        numeroDocumento: d.numeroDocumento ?? d.numero ?? null,
+        clienteNome: d.clienteNome ?? d.cliente?.nome ?? d.cliente ?? null,
+        valorTotal: this.toNumber(d.valorTotal ?? d.total),
+        valorBcIcms: this.toNumber(d.valorBcIcms ?? d.baseCalculoIcms),
+        icmsAliquota: this.toNumber(d.icmsAliquota ?? d.aliquotaIcms),
+        valorIcms: this.toNumber(d.valorIcms ?? d.icms),
+        valorIpi: this.toNumber(d.valorIpi ?? d.ipi),
+        valorPis: this.toNumber(d.valorPis ?? d.pis),
+        valorCofins: this.toNumber(d.valorCofins ?? d.cofins),
+        cfop: d.cfop ?? d.CFOP ?? null,
+      };
+    });
+  }
 }
