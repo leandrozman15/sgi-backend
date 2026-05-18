@@ -5,6 +5,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../types/roles';
 import { Tenant } from '../common/decorators/tenant.decorator';
+import { User } from '../auth/decorators/user.decorator';
 
 @Controller('products')
 @UseGuards(AuthGuard, RolesGuard)
@@ -34,9 +35,10 @@ export class ProductController {
   async update(
     @Param('id') id: string,
     @Body() updateDto: any,
-    @Tenant() companyId: string
+    @Tenant() companyId: string,
+    @User() user: any,
   ) {
-    return this.service.updateItem(id, updateDto, companyId);
+    return this.service.updateItem(id, updateDto, companyId, user);
   }
 
   @Patch(':id/adjust-stock')
@@ -44,14 +46,15 @@ export class ProductController {
   async adjustStock(
     @Param('id') id: string,
     @Body() body: any,
-    @Tenant() companyId: string
+    @Tenant() companyId: string,
+    @User() user: any,
   ) {
-    return this.service.adjustStock(id, companyId, body);
+    return this.service.adjustStock(id, companyId, body, user);
   }
 
   @Delete(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN)
-  async remove(@Param('id') id: string, @Tenant() companyId: string) {
-    return this.service.deleteItem(id, companyId);
+  async remove(@Param('id') id: string, @Tenant() companyId: string, @User() user: any) {
+    return this.service.deleteItem(id, companyId, user);
   }
 }

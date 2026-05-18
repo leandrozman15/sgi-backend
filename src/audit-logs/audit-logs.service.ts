@@ -100,4 +100,40 @@ export class AuditLogService {
 
     return { id };
   }
+
+  /**
+   * Fire-and-forget audit logger for critical mutations.
+   * Never throws — audit failures must NOT break the calling mutation.
+   * `actor` is the authenticated user (from @User() decorator).
+   */
+  async logCritical(params: {
+    companyId: string;
+    actor?: { uid?: string; email?: string; name?: string } | null;
+    module: string;
+    action: string;
+    data?: any;
+  }): Promise<void> {
+    try {
+      if (!params.companyId) return;
+      const userLabel =
+        params.actor?.email ||
+        params.actor?.name ||
+        params.actor?.uid ||
+        'system';
+      await this.prisma.audit_logs.create({
+        data: {
+          id: randomUUID(),
+          companyId: params.companyId,
+          user: userLabel,
+          module: params.module,
+          action: params.action,
+          data: params.data ?? null,
+        },
+      });
+    } catch (err) {
+      // Audit must never break the calling mutation
+      // eslint-disable-next-line no-console
+      console.error('[AuditLog] Failed to log:', err);
+    }
+  }
 }

@@ -2,7 +2,10 @@ import { Injectable, NotFoundException, BadRequestException, InternalServerError
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { NumberSequenceService } from '../number-sequences/number-sequences.service';
+import { AuditLogService } from '../audit-logs/audit-logs.service';
 import { randomUUID } from 'crypto';
+
+export type AuditActor = { uid?: string; email?: string; name?: string } | null | undefined;
 
 @Injectable()
 export class SaleService {
@@ -10,6 +13,7 @@ export class SaleService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly numberSequences: NumberSequenceService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   private getBrasilNfeToken(): string {
@@ -676,7 +680,7 @@ export class SaleService {
     }
   }
 
-  async cancelNfse(companyId: string, payload: any) {
+  async cancelNfse(companyId: string, payload: any, actor?: AuditActor) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
@@ -738,6 +742,21 @@ export class SaleService {
         data: {
           request: payload,
           response: responseData,
+          httpStatus: response.status,
+        },
+      });
+
+      await this.auditLog.logCritical({
+        companyId,
+        actor,
+        module: 'sales',
+        action: success ? 'nfse-cancel' : 'nfse-cancel-error',
+        data: {
+          nfseDocumentId: nfseDocument.id,
+          accessKey: payload?.accessKey ?? payload?.chaveAcesso ?? null,
+          protocolNumber: this.asProtocolNumber(returnData),
+          providerStatusCode: statusCode,
+          providerMessage,
           httpStatus: response.status,
         },
       });
@@ -1325,7 +1344,7 @@ export class SaleService {
     };
   }
 
-  async cancelNfe(saleId: string, companyId: string, justificativa: string) {
+  async cancelNfe(saleId: string, companyId: string, justificativa: string, actor?: AuditActor) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
@@ -1410,6 +1429,22 @@ export class SaleService {
         data: { response: responseData },
       });
 
+      await this.auditLog.logCritical({
+        companyId,
+        actor,
+        module: 'sales',
+        action: 'nfe-cancel',
+        data: {
+          saleId,
+          accessKey: sale.chaveAcesso ?? null,
+          numeroNFe: (sale as any)?.numeroNFe ?? null,
+          justificativa,
+          protocolNumber: protocol,
+          sefazStatusCode: responseData?.Status,
+          sefazStatusMessage: responseData?.DsMotivo,
+        },
+      });
+
       return {
         success: true,
         message: responseData?.DsMotivo || 'Cancelamento processado.',
@@ -1432,6 +1467,19 @@ export class SaleService {
         eventDate: new Date().toISOString(),
         reason: message,
         data: { justificativa },
+      });
+
+      await this.auditLog.logCritical({
+        companyId,
+        actor,
+        module: 'sales',
+        action: 'nfe-cancel-error',
+        data: {
+          saleId,
+          accessKey: sale?.chaveAcesso ?? null,
+          justificativa,
+          error: message,
+        },
       });
 
       return { success: false, message };
@@ -1589,10 +1637,15 @@ export class SaleService {
     return this.toClient(updated);
   }
 
-  async deleteItem(id: string, companyId: string) {
+  async deleteItem(id: string, companyId: string, actor?: AuditActor) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
+
+    const existing = await this.prisma.sales.findFirst({
+      where: { id, companyId },
+      select: { id: true, data: true },
+    });
 
     const deleted = await this.prisma.sales.deleteMany({
       where: {
@@ -1604,6 +1657,20 @@ export class SaleService {
     if (deleted.count === 0) {
       throw new NotFoundException('Venda não encontrada');
     }
+
+    const saleData: any = existing?.data ?? {};
+    await this.auditLog.logCritical({
+      companyId,
+      actor,
+      module: 'sales',
+      action: 'delete',
+      data: {
+        saleId: id,
+        numeroDocumento: saleData?.numeroDocumento ?? null,
+        clienteNome: saleData?.clienteNome ?? null,
+        valorTotal: saleData?.valorTotal ?? null,
+      },
+    });
 
     return { id };
   }

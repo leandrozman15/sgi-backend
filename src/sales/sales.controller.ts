@@ -5,6 +5,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../types/roles';
 import { Tenant } from '../common/decorators/tenant.decorator';
+import { User } from '../auth/decorators/user.decorator';
 import { EmailService } from '../email/email.service';
 
 @Controller('sales')
@@ -87,9 +88,10 @@ export class SaleController {
   async cancelNfe(
     @Param('id') id: string,
     @Body('justificativa') justificativa: string,
-    @Tenant() companyId: string
+    @Tenant() companyId: string,
+    @User() user: any,
   ) {
-    return this.service.cancelNfe(id, companyId, justificativa);
+    return this.service.cancelNfe(id, companyId, justificativa, user);
   }
 
   @Post(':id/nfe/complement')
@@ -124,9 +126,10 @@ export class SaleController {
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async cancelNfse(
     @Body() payload: any,
-    @Tenant() companyId: string
+    @Tenant() companyId: string,
+    @User() user: any,
   ) {
-    return this.service.cancelNfse(companyId, payload);
+    return this.service.cancelNfse(companyId, payload, user);
   }
 
   @Post('sped/generate')
@@ -227,8 +230,8 @@ export class SaleController {
 
   @Delete(':id')
   @Roles(UserRole.MASTER, UserRole.ADMIN)
-  async remove(@Param('id') id: string, @Tenant() companyId: string) {
-    return this.service.deleteItem(id, companyId);
+  async remove(@Param('id') id: string, @Tenant() companyId: string, @User() user: any) {
+    return this.service.deleteItem(id, companyId, user);
   }
 
   // ── Email endpoints ──

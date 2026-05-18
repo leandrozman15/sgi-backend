@@ -1,14 +1,29 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AuditLogService } from '../audit-logs/audit-logs.service';
 import { randomUUID } from 'crypto';
+
+export type AuditActor = { uid?: string; email?: string; name?: string } | null | undefined;
+
+// Product fields whose changes are commercially / fiscally sensitive and
+// must be tracked in audit logs.
+const PRICE_AND_TAX_FIELDS = [
+  'price',
+  'ncm', 'cest', 'cfop', 'csosn',
+  'ipiAliquota', 'ipiSituacaoTributaria',
+  'icmsAliquota', 'sujeitoIcmsSt', 'mvaAliquota', 'valorIcmsSt',
+  'pisAliquota', 'pisSituacaoTributaria',
+  'cofinsAliquota', 'cofinsSituacaoTributaria',
+  'aliquotaIBSUF', 'aliquotaIBSMun', 'aliquotaCBS', 'baseCalculoIBSCBS',
+  'origemMercadoria',
+];
 
 @Injectable()
 export class ProductService {
-  private prisma: PrismaService;
-
-  constructor(prisma: PrismaService) {
-    this.prisma = prisma;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   private toNumberOrNull(value: any): number | null {
     if (value === undefined || value === null || value === '') return null;
@@ -293,7 +308,7 @@ export class ProductService {
     return this.toClientProduct(created, variantRows);
   }
 
-  async updateItem(id: string, data: any, companyId: string) {
+  async updateItem(id: string, data: any, companyId: string, actor?: AuditActor) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
@@ -385,10 +400,61 @@ export class ProductService {
       await this.syncVariants(id, companyId, baseName, data?.variants ?? existing.variants ?? []);
       const variants = await this.prisma.product_variants.findMany({ where: { product_id: id } });
 
+      // ── Audit critical (price / fiscal) changes ──
+      const changes: Record<string, { from: any; to: any }> = {};
+      for (const field of PRICE_AND_TAX_FIELDS) {
+        if (data?.[field] === undefined) continue;
+        // Map camelCase DTO -> snake_case DB column
+        const dbField =
+          field === 'price' ? 'price'
+            : field === 'ncm' ? 'ncm'
+            : field === 'cest' ? 'cest'
+            : field === 'cfop' ? 'cfop'
+            : field === 'csosn' ? 'csosn'
+            : field === 'ipiAliquota' ? 'ipi_aliquota'
+            : field === 'ipiSituacaoTributaria' ? 'ipi_situacao_tributaria'
+            : field === 'icmsAliquota' ? 'icms_aliquota'
+            : field === 'sujeitoIcmsSt' ? 'sujeito_icms_st'
+            : field === 'mvaAliquota' ? 'mva_aliquota'
+            : field === 'valorIcmsSt' ? 'valor_icms_st'
+            : field === 'pisAliquota' ? 'pis_aliquota'
+            : field === 'pisSituacaoTributaria' ? 'pis_situacao_tributaria'
+            : field === 'cofinsAliquota' ? 'cofins_aliquota'
+            : field === 'cofinsSituacaoTributaria' ? 'cofins_situacao_tributaria'
+            : field === 'aliquotaIBSUF' ? 'aliquota_ibs_uf'
+            : field === 'aliquotaIBSMun' ? 'aliquota_ibs_mun'
+            : field === 'aliquotaCBS' ? 'aliquota_cbs'
+            : field === 'baseCalculoIBSCBS' ? 'base_calculo_ibs_cbs'
+            : field === 'origemMercadoria' ? 'origem_mercadoria'
+            : null;
+        if (!dbField) continue;
+        const oldVal = (existing as any)?.[dbField];
+        const newVal = (updated as any)?.[dbField];
+        const norm = (v: any) =>
+          v && typeof v === 'object' && typeof v.toNumber === 'function' ? v.toNumber() : v;
+        if (norm(oldVal) !== norm(newVal)) {
+          changes[field] = { from: norm(oldVal), to: norm(newVal) };
+        }
+      }
+      if (Object.keys(changes).length > 0) {
+        await this.auditLog.logCritical({
+          companyId,
+          actor,
+          module: 'products',
+          action: 'price-or-tax-update',
+          data: {
+            productId: id,
+            productCode: updated.code,
+            productName: updated.name,
+            changes,
+          },
+        });
+      }
+
       return this.toClientProduct(updated, variants);
   }
 
-  async adjustStock(id: string, companyId: string, payload: { currentStock?: number; minStock?: number; maxStock?: number; variantId?: string; reason?: string }) {
+  async adjustStock(id: string, companyId: string, payload: { currentStock?: number; minStock?: number; maxStock?: number; variantId?: string; reason?: string }, actor?: AuditActor) {
     if (!companyId) throw new NotFoundException('Empresa não encontrada');
 
     const existing = await this.prisma.products.findFirst({ where: { id, company_id: companyId } });
@@ -443,13 +509,36 @@ export class ProductService {
     });
 
     const variants = await this.prisma.product_variants.findMany({ where: { product_id: id } });
+
+    await this.auditLog.logCritical({
+      companyId,
+      actor,
+      module: 'products',
+      action: 'adjust-stock',
+      data: {
+        productId: id,
+        productCode: existing.code,
+        productName: existing.name,
+        variantId: payload.variantId || null,
+        currentStock: payload.currentStock,
+        minStock: payload.minStock,
+        maxStock: payload.maxStock,
+        reason: payload.reason || 'Ajuste manual de estoque',
+      },
+    });
+
     return this.toClientProduct(updated, variants);
   }
 
-  async deleteItem(id: string, companyId: string) {
+  async deleteItem(id: string, companyId: string, actor?: AuditActor) {
     if (!companyId) {
       throw new NotFoundException('Empresa não encontrada');
     }
+
+    const existing = await this.prisma.products.findFirst({
+      where: { id, company_id: companyId },
+      select: { id: true, code: true, name: true },
+    });
 
     const variants = await this.prisma.product_variants.findMany({
       where: {
@@ -485,6 +574,18 @@ export class ProductService {
     if (deleted.count === 0) {
       throw new NotFoundException('Produto não encontrado');
     }
+
+    await this.auditLog.logCritical({
+      companyId,
+      actor,
+      module: 'products',
+      action: 'delete',
+      data: {
+        productId: id,
+        productCode: existing?.code ?? null,
+        productName: existing?.name ?? null,
+      },
+    });
 
     return { id };
   }
