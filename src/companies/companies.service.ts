@@ -515,22 +515,74 @@ export class CompanyService {
       },
     });
 
-    // Forçar logout de todos os usuários vinculados a esta empresa.
-    // Best-effort: erros individuais não devem bloquear o soft-delete.
+    // Após o soft-delete, remover os vínculos com a empresa e, quando o usuário
+    // não pertencer a nenhuma outra empresa ativa, eliminá-lo também do Firebase
+    // Auth + tabela users para que não consiga mais fazer login.
+    // Best-effort: erros individuais não devem reverter o soft-delete.
     try {
       const memberships = await this.prisma.user_companies.findMany({
         where: { company_id: id },
-        select: { user_id: true },
+        select: { user_id: true, role: true },
       });
+
       const auth = getAuth();
-      await Promise.allSettled(
-        memberships
-          .map((m) => String(m.user_id || '').trim())
-          .filter(Boolean)
-          .map((uid) => auth.revokeRefreshTokens(uid)),
-      );
+      const masterUids = new Set(this.getMasterUids());
+
+      for (const m of memberships) {
+        const uid = String(m.user_id || '').trim();
+        if (!uid) continue;
+
+        // Nunca remover um MASTER por segurança.
+        if (masterUids.has(uid) || String(m.role || '').toUpperCase() === 'MASTER') {
+          try { await auth.revokeRefreshTokens(uid); } catch {}
+          continue;
+        }
+
+        // Conta vínculos em OUTRAS empresas que não estejam excluídas.
+        const otherActive = await this.prisma.user_companies.count({
+          where: {
+            user_id: uid,
+            company_id: { not: id },
+            companies: { plan: { not: 'deleted' } },
+          },
+        });
+
+        if (otherActive > 0) {
+          // Usuário ainda pertence a outras empresas → apenas remove o vínculo
+          // com a empresa excluída e força logout.
+          try {
+            await this.prisma.user_companies.deleteMany({
+              where: { user_id: uid, company_id: id },
+            });
+          } catch (err) {
+            console.error(`Falha ao remover vínculo de ${uid} com empresa ${id}:`, err);
+          }
+          try { await auth.revokeRefreshTokens(uid); } catch {}
+          continue;
+        }
+
+        // Usuário só pertencia a esta empresa → apaga login no Firebase + DB.
+        try {
+          await this.prisma.user_companies.deleteMany({ where: { user_id: uid } });
+        } catch (err) {
+          console.error(`Falha ao remover user_companies de ${uid}:`, err);
+        }
+        try {
+          await this.prisma.users.deleteMany({ where: { id: uid } });
+        } catch (err) {
+          console.error(`Falha ao remover users row de ${uid}:`, err);
+        }
+        try {
+          await auth.deleteUser(uid);
+        } catch (err: any) {
+          // auth/user-not-found é aceitável.
+          if (err?.code !== 'auth/user-not-found') {
+            console.error(`Falha ao remover usuário Firebase ${uid}:`, err);
+          }
+        }
+      }
     } catch (err) {
-      console.error('Falha ao revogar tokens após soft-delete:', err);
+      console.error('Falha ao limpar usuários após soft-delete:', err);
     }
 
     return updated;
