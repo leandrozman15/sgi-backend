@@ -141,6 +141,27 @@ export class CompanyService {
       revenueRows.map((row) => [row.company_id, Number(row._sum.amount ?? 0)]),
     );
 
+    // Conta NF-e emitidas no mês por empresa (documentos fiscais do tipo NFE
+    // criados a partir do início do mês corrente). Inclui qualquer status para
+    // que o MASTER veja a movimentação real de emissão dos seus clientes.
+    let nfeByCompany = new Map<string, number>();
+    try {
+      const nfeRows = await this.prisma.sales_fiscal_documents.groupBy({
+        by: ['company_id'],
+        where: {
+          document_type: 'NFE',
+          created_at: { gte: startOfMonth },
+        },
+        _count: { _all: true },
+      });
+      nfeByCompany = new Map<string, number>(
+        nfeRows.map((row: any) => [row.company_id, Number(row._count?._all ?? 0)]),
+      );
+    } catch {
+      // Se a tabela ainda não existir ou houver erro, segue com 0.
+      nfeByCompany = new Map<string, number>();
+    }
+
     const list = await Promise.all(
       companies.map(async (company) => {
         const plan = this.normalizePlan(company.plan || 'basic');
@@ -174,6 +195,8 @@ export class CompanyService {
           status,
           usagePercent,
           monthRevenue: revenueByCompany.get(company.id) || 0,
+          usersCount: company._count.user_companies,
+          nfeIssuedThisMonth: nfeByCompany.get(company.id) || 0,
           adminEmail,
           activationLink,
           createdAt: company.created_at,
