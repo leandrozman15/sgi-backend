@@ -46,6 +46,7 @@ export class EmailService {
     if (!nfeStatus || nfeStatus === 'Pendente') {
       return { success: false, error: 'Nota fiscal ainda não foi autorizada.' };
     }
+    const isCancelada = String(nfeStatus).toUpperCase() === 'CANCELADA';
 
     // Load company (emitente) data
     const company = await this.prisma.companies.findFirst({ where: { id: companyId } });
@@ -144,13 +145,13 @@ export class EmailService {
 
     if (saleData.pdfNFe || saleData.danfePdf) {
       attachments.push({
-        filename: `DANFE_${numeroFormatado}.pdf`,
+        filename: `DANFE${isCancelada ? '_CANCELADA' : ''}_${numeroFormatado}.pdf`,
         content: saleData.pdfNFe || saleData.danfePdf,
         contentType: 'application/pdf',
       });
     }
 
-    const subject = `${tipoDoc} Nº ${numeroFormatado} | ${emitente.razaoSocial}`;
+    const subject = `${isCancelada ? '[CANCELADA] ' : ''}${tipoDoc} Nº ${numeroFormatado} | ${emitente.razaoSocial}`;
 
     const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 640px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
@@ -166,6 +167,11 @@ export class EmailService {
 
         <!-- Body -->
         <div style="padding: 32px;">
+          ${isCancelada ? `
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:6px;padding:14px 18px;margin:0 0 20px;">
+            <p style="margin:0;color:#991b1b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">⚠️ NF-e Cancelada</p>
+            <p style="margin:6px 0 0;color:#7f1d1d;font-size:13px;line-height:1.5;">Esta Nota Fiscal Eletrônica foi <strong>cancelada</strong> junto à SEFAZ. O DANFE em anexo refere-se ao documento original emitido e não possui validade fiscal após o cancelamento.</p>
+          </div>` : ''}
           <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
             Prezado(a) <strong>${destinatario.nome}</strong>,
           </p>
@@ -288,9 +294,11 @@ export class EmailService {
     `;
 
     const text = [
-      `NOTA FISCAL ELETRÔNICA`,
+      `NOTA FISCAL ELETRÔNICA${isCancelada ? ' — CANCELADA' : ''}`,
       `${tipoDoc} Nº ${numeroFormatado} — Série ${serie}`,
       ``,
+      isCancelada ? `*** NF-e CANCELADA na SEFAZ — documento sem validade fiscal após o cancelamento ***` : '',
+      isCancelada ? `` : '',
       `Prezado(a) ${destinatario.nome},`,
       ``,
       `Segue em anexo a ${tipoDoc} referente à operação de ${naturezaOperacao || 'venda'}.`,
