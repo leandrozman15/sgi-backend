@@ -84,6 +84,25 @@ export class TenantMembershipGuard implements CanActivate {
       throw new ForbiddenException('Acesso negado: companyId não informado');
     }
 
+    // Mesmo o MASTER não pode operar dentro de uma empresa excluída (soft-deleted).
+    // Empresas pausadas (active=false sem plan='deleted') continuam acessíveis ao
+    // MASTER para reativação/diagnóstico — só bloqueamos as excluídas.
+    try {
+      const deletedCheck = await this.prisma.companies.findUnique({
+        where: { id: String(companyId) },
+        select: { plan: true },
+      });
+      if (!deletedCheck || deletedCheck.plan === 'deleted') {
+        throw new ForbiddenException('Empresa excluída. Não é possível operar dentro dela.');
+      }
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+      // Em caso de falha do banco, não bloquear MASTER por engano.
+      console.error('Erro ao verificar estado da empresa (master check):', error);
+    }
+
     if (isMaster) {
       return true;
     }
