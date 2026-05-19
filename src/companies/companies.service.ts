@@ -483,7 +483,7 @@ export class CompanyService {
       throw new NotFoundException('Empresa não encontrada');
     }
 
-    return this.prisma.companies.update({
+    const updated = await this.prisma.companies.update({
       where: { id },
       data: {
         active: false,
@@ -491,6 +491,26 @@ export class CompanyService {
         updated_at: new Date(),
       },
     });
+
+    // Forçar logout de todos os usuários vinculados a esta empresa.
+    // Best-effort: erros individuais não devem bloquear o soft-delete.
+    try {
+      const memberships = await this.prisma.user_companies.findMany({
+        where: { company_id: id },
+        select: { user_id: true },
+      });
+      const auth = getAuth();
+      await Promise.allSettled(
+        memberships
+          .map((m) => String(m.user_id || '').trim())
+          .filter(Boolean)
+          .map((uid) => auth.revokeRefreshTokens(uid)),
+      );
+    } catch (err) {
+      console.error('Falha ao revogar tokens após soft-delete:', err);
+    }
+
+    return updated;
   }
 
   async findByCompany(companyId: string, uid?: string | null, userRole?: string | null) {
@@ -509,7 +529,12 @@ export class CompanyService {
         },
       });
 
-      return company ? [company] : [];
+      if (!company) return [];
+      // Ocultar empresas soft-deleted para usuários não-MASTER.
+      if (!isMaster && (company.active === false || company.plan === 'deleted')) {
+        return [];
+      }
+      return [company];
     }
 
     if (isMaster) {
@@ -541,7 +566,8 @@ export class CompanyService {
 
     return memberships
       .map((membership) => membership.companies)
-      .filter((company) => Boolean(company));
+      .filter((company) => Boolean(company))
+      .filter((company: any) => company.active !== false && company.plan !== 'deleted');
   }
 
   async findById(id: string, companyId: string) {

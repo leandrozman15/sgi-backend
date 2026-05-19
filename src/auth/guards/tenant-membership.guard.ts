@@ -103,10 +103,20 @@ export class TenantMembershipGuard implements CanActivate {
         throw new ForbiddenException('Usuário não pertence a esta empresa');
       }
 
+      // Bloquear acesso se a empresa foi soft-deleted/desativada pelo MASTER.
+      const company = await this.prisma.companies.findUnique({
+        where: { id: String(companyId) },
+        select: { active: true, plan: true },
+      });
+
+      if (!company || company.active === false || company.plan === 'deleted') {
+        throw new ForbiddenException('Empresa desativada ou excluída. Contate o administrador.');
+      }
+
       return true;
     } catch (error) {
       if (error instanceof ForbiddenException) {
-        throw new ForbiddenException('Usuário não pertence a esta empresa');
+        throw error;
       }
       console.error('Erro ao verificar permissão de empresa:', error);
       throw new ForbiddenException('Erro ao verificar permissão de empresa');
