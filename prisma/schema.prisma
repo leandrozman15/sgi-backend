@@ -1995,6 +1995,7 @@ model budget_periods {
   budget_alerts      budget_alerts[]
   budget_commitments budget_commitments[]
   budget_lines       budget_lines[]
+  expense_intentions expense_intentions[]
 
   @@unique([company_id, year, month, plant])
   @@index([company_id], map: "idx_budget_periods_company")
@@ -2017,7 +2018,39 @@ model cost_centers {
   budget_lines       budget_lines[]
   cost_centers       cost_centers?        @relation("cost_centersTocost_centers", fields: [parent_id], references: [id], onUpdate: NoAction)
   other_cost_centers cost_centers[]       @relation("cost_centersTocost_centers")
+  expense_intentions expense_intentions[]
 
   @@unique([company_id, code])
   @@index([company_id], map: "idx_cost_centers_company")
+}
+
+model expense_intentions {
+  id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id             String          @db.Uuid
+  period_id              String?         @db.Uuid
+  cost_center_id         String          @db.Uuid
+  title                  String          @db.VarChar(255)
+  description            String?
+  kind                   String          @default("gasto") @db.VarChar(20)
+  amount                 Decimal         @default(0) @db.Decimal(18, 2)
+  currency               String          @default("BRL") @db.VarChar(8)
+  planned_date           DateTime?       @db.Date
+  scheduled_payment_date DateTime?       @db.Date
+  supplier_name          String?         @db.VarChar(255)
+  priority               String          @default("normal") @db.VarChar(20)
+  status                 String          @default("borrador") @db.VarChar(20)
+  requested_by           String?         @db.VarChar(255)
+  approved_by            String?         @db.VarChar(255)
+  approved_at            DateTime?       @db.Timestamptz(6)
+  converted_po_id        String?         @db.VarChar(80)
+  notes                  String?
+  created_at             DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime        @default(now()) @db.Timestamptz(6)
+  cost_centers           cost_centers    @relation(fields: [cost_center_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  budget_periods         budget_periods? @relation(fields: [period_id], references: [id], onUpdate: NoAction)
+
+  @@index([cost_center_id], map: "idx_expense_intentions_cc")
+  @@index([company_id], map: "idx_expense_intentions_company")
+  @@index([period_id], map: "idx_expense_intentions_period")
+  @@index([company_id, status], map: "idx_expense_intentions_status")
 }

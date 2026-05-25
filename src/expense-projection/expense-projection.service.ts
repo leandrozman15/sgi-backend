@@ -87,6 +87,33 @@ export class ExpenseProjectionService {
     };
   }
 
+  private serializeIntention(row: any, costCenterName?: string) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      periodId: row.period_id,
+      costCenterId: row.cost_center_id,
+      costCenterName,
+      title: row.title,
+      description: row.description,
+      kind: row.kind,
+      amount: Number(row.amount ?? 0),
+      currency: row.currency,
+      plannedDate: row.planned_date,
+      scheduledPaymentDate: row.scheduled_payment_date,
+      supplierName: row.supplier_name,
+      priority: row.priority,
+      status: row.status,
+      requestedBy: row.requested_by,
+      approvedBy: row.approved_by,
+      approvedAt: row.approved_at,
+      convertedPoId: row.converted_po_id,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
   // ─── Períodos ──────────────────────────────────────────────────────
   async listPeriods(companyId: string) {
     if (!companyId) return [];
@@ -335,6 +362,269 @@ export class ExpenseProjectionService {
       data: { acknowledged_at: new Date() },
     });
     return this.serializeAlert(row);
+  }
+
+  // ─── Intenciones de Gastos ─────────────────────────────────────────
+  async listIntentions(companyId: string, filter: { periodId?: string; status?: string } = {}) {
+    if (!companyId) return [];
+    const [rows, ccs] = await Promise.all([
+      this.prisma.expense_intentions.findMany({
+        where: {
+          company_id: companyId,
+          ...(filter.periodId ? { period_id: filter.periodId } : {}),
+          ...(filter.status ? { status: filter.status } : {}),
+        },
+        orderBy: [{ planned_date: 'asc' }, { created_at: 'desc' }],
+        take: 1000,
+      }),
+      this.prisma.cost_centers.findMany({ where: { company_id: companyId } }),
+    ]);
+    const ccMap = new Map(ccs.map((c) => [c.id, c.name]));
+    return rows.map((r) => this.serializeIntention(r, ccMap.get(r.cost_center_id) ?? undefined));
+  }
+
+  async getIntention(companyId: string, id: string) {
+    const row = await this.prisma.expense_intentions.findFirst({
+      where: { id, company_id: companyId },
+    });
+    if (!row) throw new NotFoundException('intention not found');
+    const cc = await this.prisma.cost_centers.findFirst({ where: { id: row.cost_center_id } });
+    return this.serializeIntention(row, cc?.name);
+  }
+
+  async createIntention(companyId: string, dto: any) {
+    if (!companyId) throw new BadRequestException('companyId required');
+    if (!dto?.title) throw new BadRequestException('title required');
+    if (!dto?.costCenterId) throw new BadRequestException('costCenterId required');
+    if (!(Number(dto?.amount) > 0)) throw new BadRequestException('amount must be > 0');
+
+    const periodId = dto.periodId ?? (await this.resolvePeriodId(companyId, dto.plannedDate, dto.costCenterId));
+
+    const row = await this.prisma.expense_intentions.create({
+      data: {
+        id: randomUUID(),
+        company_id: companyId,
+        period_id: periodId ?? null,
+        cost_center_id: dto.costCenterId,
+        title: String(dto.title).slice(0, 255),
+        description: dto.description ?? null,
+        kind: dto.kind === 'inversion' ? 'inversion' : 'gasto',
+        amount: dto.amount,
+        currency: dto.currency ?? 'BRL',
+        planned_date: dto.plannedDate ? new Date(dto.plannedDate) : null,
+        scheduled_payment_date: dto.scheduledPaymentDate ? new Date(dto.scheduledPaymentDate) : null,
+        supplier_name: dto.supplierName ?? null,
+        priority: ['low', 'normal', 'high'].includes(dto.priority) ? dto.priority : 'normal',
+        status: dto.status === 'aprobado' ? 'aprobado' : 'borrador',
+        requested_by: dto.requestedBy ?? null,
+        notes: dto.notes ?? null,
+        updated_at: new Date(),
+      },
+    });
+
+    if (row.status === 'aprobado') {
+      await this.mirrorIntentionAsCommitment(row).catch((e) => {
+        // eslint-disable-next-line no-console
+        console.warn('[intentions] mirror failed:', e?.message || e);
+      });
+    }
+
+    return this.serializeIntention(row);
+  }
+
+  async updateIntention(companyId: string, id: string, dto: any) {
+    const existing = await this.prisma.expense_intentions.findFirst({
+      where: { id, company_id: companyId },
+    });
+    if (!existing) throw new NotFoundException('intention not found');
+    if (existing.status === 'convertido' || existing.status === 'ejecutado') {
+      throw new BadRequestException(`cannot edit intention in status ${existing.status}`);
+    }
+
+    const newAmount = dto.amount !== undefined ? Number(dto.amount) : Number(existing.amount);
+    const newCostCenter = dto.costCenterId ?? existing.cost_center_id;
+    const newPlanned = dto.plannedDate !== undefined ? (dto.plannedDate ? new Date(dto.plannedDate) : null) : existing.planned_date;
+    const newPeriodId = dto.periodId !== undefined
+      ? dto.periodId
+      : (existing.period_id ?? (await this.resolvePeriodId(companyId, newPlanned, newCostCenter)));
+
+    const row = await this.prisma.expense_intentions.update({
+      where: { id },
+      data: {
+        period_id: newPeriodId ?? null,
+        cost_center_id: newCostCenter,
+        title: dto.title ?? existing.title,
+        description: dto.description ?? existing.description,
+        kind: dto.kind === 'inversion' || dto.kind === 'gasto' ? dto.kind : existing.kind,
+        amount: newAmount,
+        currency: dto.currency ?? existing.currency,
+        planned_date: newPlanned,
+        scheduled_payment_date: dto.scheduledPaymentDate !== undefined
+          ? (dto.scheduledPaymentDate ? new Date(dto.scheduledPaymentDate) : null)
+          : existing.scheduled_payment_date,
+        supplier_name: dto.supplierName !== undefined ? dto.supplierName : existing.supplier_name,
+        priority: ['low', 'normal', 'high'].includes(dto.priority) ? dto.priority : existing.priority,
+        requested_by: dto.requestedBy !== undefined ? dto.requestedBy : existing.requested_by,
+        notes: dto.notes !== undefined ? dto.notes : existing.notes,
+        updated_at: new Date(),
+      },
+    });
+
+    // si está aprobada, refrescar mirror commitment
+    if (row.status === 'aprobado') {
+      await this.refreshIntentionCommitment(row).catch((e) => {
+        // eslint-disable-next-line no-console
+        console.warn('[intentions] refresh mirror failed:', e?.message || e);
+      });
+    }
+
+    return this.serializeIntention(row);
+  }
+
+  async approveIntention(companyId: string, id: string, approver?: string) {
+    const existing = await this.prisma.expense_intentions.findFirst({
+      where: { id, company_id: companyId },
+    });
+    if (!existing) throw new NotFoundException('intention not found');
+    if (existing.status !== 'borrador') {
+      throw new BadRequestException(`cannot approve intention in status ${existing.status}`);
+    }
+    const row = await this.prisma.expense_intentions.update({
+      where: { id },
+      data: {
+        status: 'aprobado',
+        approved_by: approver ?? null,
+        approved_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    await this.mirrorIntentionAsCommitment(row).catch((e) => {
+      // eslint-disable-next-line no-console
+      console.warn('[intentions] mirror failed:', e?.message || e);
+    });
+    return this.serializeIntention(row);
+  }
+
+  async cancelIntention(companyId: string, id: string, reason?: string) {
+    const existing = await this.prisma.expense_intentions.findFirst({
+      where: { id, company_id: companyId },
+    });
+    if (!existing) throw new NotFoundException('intention not found');
+    if (existing.status === 'convertido' || existing.status === 'ejecutado') {
+      throw new BadRequestException(`cannot cancel intention in status ${existing.status}`);
+    }
+    const row = await this.prisma.expense_intentions.update({
+      where: { id },
+      data: {
+        status: 'cancelado',
+        notes: reason ? `${existing.notes ?? ''}\n[CANCELADA] ${reason}`.trim() : existing.notes,
+        updated_at: new Date(),
+      },
+    });
+    // limpiar commitment espejo si existía
+    await this.prisma.budget_commitments.deleteMany({
+      where: { company_id: companyId, ref_type: 'intention', ref_id: id },
+    });
+    return this.serializeIntention(row);
+  }
+
+  /**
+   * Marca una intención como convertida a OC. Reemplaza el commitment 'solicitado'
+   * por el de la OC (que ya se generará vía PurchaseOrderService.syncBudgetCommitments).
+   */
+  async markIntentionConverted(companyId: string, id: string, poId: string) {
+    const existing = await this.prisma.expense_intentions.findFirst({
+      where: { id, company_id: companyId },
+    });
+    if (!existing) throw new NotFoundException('intention not found');
+    const row = await this.prisma.expense_intentions.update({
+      where: { id },
+      data: {
+        status: 'convertido',
+        converted_po_id: poId,
+        updated_at: new Date(),
+      },
+    });
+    // remover commitment espejo (la OC creará su propio commitment)
+    await this.prisma.budget_commitments.deleteMany({
+      where: { company_id: companyId, ref_type: 'intention', ref_id: id },
+    });
+    return this.serializeIntention(row);
+  }
+
+  /**
+   * Resuelve el período presupuestario al que pertenece una intención según
+   * la fecha planeada (year+month) y la planta del centro de costo.
+   */
+  private async resolvePeriodId(
+    companyId: string,
+    plannedDate: Date | string | null | undefined,
+    costCenterId?: string,
+  ): Promise<string | null> {
+    const d = plannedDate ? new Date(plannedDate) : new Date();
+    if (Number.isNaN(d.getTime())) return null;
+    let plant: string | null = null;
+    if (costCenterId) {
+      const cc = await this.prisma.cost_centers.findFirst({
+        where: { id: costCenterId, company_id: companyId },
+      });
+      plant = cc?.plant ?? null;
+    }
+    const period = await this.prisma.budget_periods.findFirst({
+      where: {
+        company_id: companyId,
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        plant,
+        status: { in: ['borrador', 'aprobado'] },
+      },
+    });
+    return period?.id ?? null;
+  }
+
+  /**
+   * Crea (o reemplaza) un commitment 'solicitado' que refleja la intención
+   * en la proyección de gastos. Es idempotente por (ref_type='intention', ref_id).
+   */
+  private async mirrorIntentionAsCommitment(intention: any) {
+    if (!intention?.period_id) return; // sin período no aporta a la proyección
+    await this.prisma.budget_commitments.deleteMany({
+      where: {
+        company_id: intention.company_id,
+        ref_type: 'intention',
+        ref_id: intention.id,
+      },
+    });
+    await this.prisma.budget_commitments.create({
+      data: {
+        id: randomUUID(),
+        company_id: intention.company_id,
+        period_id: intention.period_id,
+        cost_center_id: intention.cost_center_id,
+        tipo: 'solicitado',
+        amount: intention.amount,
+        currency: intention.currency,
+        ref_type: 'intention',
+        ref_id: intention.id,
+        ref_label: intention.title,
+        supplier_name: intention.supplier_name,
+        occurred_at: intention.planned_date ?? new Date(),
+        scheduled_at: intention.scheduled_payment_date ?? null,
+      },
+    });
+  }
+
+  private async refreshIntentionCommitment(intention: any) {
+    // Sólo refresca si ya existía un mirror (intención aprobada)
+    const existing = await this.prisma.budget_commitments.findFirst({
+      where: {
+        company_id: intention.company_id,
+        ref_type: 'intention',
+        ref_id: intention.id,
+      },
+    });
+    if (!existing) return;
+    await this.mirrorIntentionAsCommitment(intention);
   }
 
   // ─── Projection snapshot ───────────────────────────────────────────

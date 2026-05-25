@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ExpenseProjectionService } from './expense-projection.service';
 import { AuthGuard } from '../common/guards/auth.guard';
@@ -133,5 +134,72 @@ export class ExpenseProjectionController {
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR)
   async acknowledgeAlert(@Param('id') id: string, @Tenant() companyId: string) {
     return this.service.acknowledgeAlert(companyId, id);
+  }
+
+  // ─── Intenciones de Gastos ─────────────────────────────────────────
+  @Get('intentions')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
+  async listIntentions(
+    @Tenant() companyId: string,
+    @Query('periodId') periodId?: string,
+    @Query('status') status?: string,
+  ) {
+    const data = await this.service.listIntentions(companyId, { periodId, status });
+    return { data };
+  }
+
+  @Get('intentions/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR, UserRole.CONSULTOR)
+  async getIntention(@Param('id') id: string, @Tenant() companyId: string) {
+    return this.service.getIntention(companyId, id);
+  }
+
+  @Post('intentions')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR)
+  async createIntention(@Body() body: any, @Tenant() companyId: string) {
+    return this.service.createIntention(companyId, body);
+  }
+
+  @Put('intentions/:id')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR, UserRole.OPERADOR)
+  async updateIntention(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.updateIntention(companyId, id, body);
+  }
+
+  @Post('intentions/:id/approve')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
+  async approveIntention(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.approveIntention(companyId, id, body?.approver);
+  }
+
+  @Post('intentions/:id/cancel')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR)
+  async cancelIntention(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Tenant() companyId: string,
+  ) {
+    return this.service.cancelIntention(companyId, id, body?.reason);
+  }
+
+  @Post('intentions/:id/convert')
+  @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE, UserRole.SUPERVISOR)
+  async convertIntention(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Tenant() companyId: string,
+  ) {
+    if (!body?.purchaseOrderId) {
+      throw new BadRequestException('purchaseOrderId required');
+    }
+    return this.service.markIntentionConverted(companyId, id, body.purchaseOrderId);
   }
 }
