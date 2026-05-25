@@ -68,7 +68,11 @@ model companies {
   accounting_fiscal_periods         accounting_fiscal_periods[]
   accounting_journal_entries        accounting_journal_entries[]
   accounting_journal_entry_lines    accounting_journal_entry_lines[]
+  calendar_events                   calendar_events[]
   calibrations                      calibrations[]
+  commissions                       commissions[]
+  company_info                      company_info?
+  dashboard_messages                dashboard_messages[]
   employees                         employees[]
   financial_bank_transactions       financial_bank_transactions[]
   financial_salary_payments         financial_salary_payments[]
@@ -100,6 +104,7 @@ model companies {
   maintenance_schedules             maintenance_schedules[]
   maintenance_work_order_parts      maintenance_work_order_parts[]
   maintenance_work_orders           maintenance_work_orders[]
+  payroll_configs                   payroll_configs[]
   product_variants                  product_variants[]
   production_orders                 production_orders[]
   products                          products[]
@@ -113,19 +118,14 @@ model companies {
   sales_fiscal_events               sales_fiscal_events[]
   sales_nfse_documents              sales_nfse_documents[]
   sales_nfse_events                 sales_nfse_events[]
+  scraps                            scraps[]
+  shifts                            shifts[]
   subscription_history              subscription_history[]
   tax_service_payments              tax_service_payments[]
   user_companies                    user_companies[]
   users                             users[]
   work_accidents                    work_accidents[]
-  shifts                            shifts[]
   work_teams                        work_teams[]
-  company_info                      company_info[]
-  scraps                            scraps[]
-  commissions                       commissions[]
-  calendar_events                   calendar_events[]
-  dashboard_messages                dashboard_messages[]
-  payroll_configs                   payroll_configs[]
 }
 
 model employees {
@@ -632,11 +632,11 @@ model sales {
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime
   deletedAt        DateTime?
+  email_logs       invoice_email_logs[]
   items            sale_items[]
   history          sale_status_history[]
   fiscal_documents sales_fiscal_documents[]
   nfse_documents   sales_nfse_documents[]
-  email_logs       invoice_email_logs[]
 
   @@index([companyId, deletedAt], map: "Sale_companyId_deletedAt_idx")
   @@index([companyId], map: "Sale_companyId_idx")
@@ -1626,8 +1626,6 @@ model hr_benefit_controls {
   @@index([scope])
 }
 
-// ─── Gestão de Turnos de Trabalho ────────────────────────────────────────────
-
 model shifts {
   id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id          String
@@ -1670,10 +1668,9 @@ model work_teams {
   @@index([area])
 }
 
-// ─── Company Info (dados cadastrais, endereço, referências comerciais) ─────
 model company_info {
   id                    String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id            String
+  company_id            String    @unique
   name                  String?
   cnpj                  String?
   cnae                  String?
@@ -1694,11 +1691,8 @@ model company_info {
   created_at            DateTime  @default(now()) @db.Timestamptz(6)
   updated_at            DateTime  @default(now()) @db.Timestamptz(6)
   companies             companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
-
-  @@unique([company_id])
 }
 
-// ─── Scraps / Sucatas (refugos de produção) ────────────────────────────────
 model scraps {
   id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id          String
@@ -1732,7 +1726,6 @@ model scraps {
   @@index([status])
 }
 
-// ─── Commissions / Comissões ───────────────────────────────────────────────
 model commissions {
   id             String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id     String
@@ -1760,7 +1753,6 @@ model commissions {
   @@index([period])
 }
 
-// ─── Calendar Events (eventos do calendário interno) ───────────────────────
 model calendar_events {
   id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id  String
@@ -1785,7 +1777,6 @@ model calendar_events {
   @@index([category])
 }
 
-// ─── Dashboard Messages (avisos e comunicados internos) ────────────────────
 model dashboard_messages {
   id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id  String
@@ -1809,7 +1800,6 @@ model dashboard_messages {
   @@index([priority])
 }
 
-// ─── Payroll Configs (configuração de holerite / folha) ────────────────────
 model payroll_configs {
   id                     String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id             String
@@ -1836,7 +1826,6 @@ model payroll_configs {
   @@index([company_id])
 }
 
-// ─── Invoice Email Logs (rastreio de envios de NF-e/NFS-e por e-mail) ──────
 model invoice_email_logs {
   id                  String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   company_id          String
@@ -1853,43 +1842,41 @@ model invoice_email_logs {
   @@index([invoice_id])
 }
 
-// ─── Fixed Expenses (gastos fijos recurrentes) ─────────────────────────────
 model fixed_expenses {
-  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  company_id  String
-  data        Json?
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
-  companies   companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id         String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  company_id String
+  data       Json?
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @db.Timestamptz(6)
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
 }
 
-// ─── Expedições (Saída de Produto) + Packing/Embalagem ─────────────────────
 model expeditions {
-  id                    String    @id(map: "Expedition_pkey")
-  companyId             String
-  pedidoRef             String?
-  pedidoId              String?
-  clienteNome           String
-  dataExpedicao         DateTime
-  status                String    @default("Pendente")
-  tipoEnvio             String
-  transportadoraNome    String?
-  numeroGuia            String?
-  modalidadeFrete       String?
-  placaVeiculo          String?
-  observacoes           String?
-  tipoDocumentoFiscal   String?
-  nfeNumero             String?
-  nfeStatus             String?
-  items                 Json      @default("[]")
-  bultos                Json      @default("[]")
-  historico             Json      @default("[]")
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime
-  deletedAt             DateTime?
-  createdBy             String?
+  id                  String    @id(map: "Expedition_pkey")
+  companyId           String
+  pedidoRef           String?
+  pedidoId            String?
+  clienteNome         String
+  dataExpedicao       DateTime
+  status              String    @default("Pendente")
+  tipoEnvio           String
+  transportadoraNome  String?
+  numeroGuia          String?
+  modalidadeFrete     String?
+  placaVeiculo        String?
+  observacoes         String?
+  tipoDocumentoFiscal String?
+  nfeNumero           String?
+  nfeStatus           String?
+  items               Json      @default("[]")
+  bultos              Json      @default("[]")
+  historico           Json      @default("[]")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+  deletedAt           DateTime?
+  createdBy           String?
 
   @@index([companyId], map: "Expedition_companyId_idx")
   @@index([companyId, deletedAt], map: "Expedition_companyId_deletedAt_idx")
@@ -1899,19 +1886,138 @@ model expeditions {
 }
 
 model number_sequences {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   companyId     String
   key           String
   name          String
-  prefix        String   @default("")
-  suffix        String   @default("")
-  padding       Int      @default(5)
-  currentNumber Int      @default(0)
+  prefix        String    @default("")
+  suffix        String    @default("")
+  padding       Int       @default(5)
+  currentNumber Int       @default(0)
   lastUsedAt    DateTime?
   lastUsedBy    String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([companyId, key], map: "NumberSequence_company_key_unique")
   @@index([companyId], map: "NumberSequence_companyId_idx")
+}
+
+model approval_rules {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id    String   @db.Uuid
+  min_amount    Decimal  @db.Decimal(18, 2)
+  max_amount    Decimal? @db.Decimal(18, 2)
+  currency      String   @default("BRL") @db.VarChar(8)
+  requires_role String   @db.VarChar(60)
+  signatures    Int      @default(1)
+  active        Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([company_id], map: "idx_approval_rules_company")
+}
+
+model budget_alerts {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id      String         @db.Uuid
+  period_id       String         @db.Uuid
+  type            String         @db.VarChar(40)
+  severity        String         @default("warning") @db.VarChar(20)
+  ref_id          String?        @db.VarChar(80)
+  ref_label       String?        @db.VarChar(255)
+  message         String
+  acknowledged_at DateTime?      @db.Timestamptz(6)
+  acknowledged_by String?        @db.VarChar(255)
+  created_at      DateTime       @default(now()) @db.Timestamptz(6)
+  budget_periods  budget_periods @relation(fields: [period_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([period_id], map: "idx_alerts_period")
+}
+
+model budget_commitments {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id     String         @db.Uuid
+  period_id      String         @db.Uuid
+  cost_center_id String         @db.Uuid
+  tipo           String         @db.VarChar(20)
+  amount         Decimal        @default(0) @db.Decimal(18, 2)
+  currency       String         @default("BRL") @db.VarChar(8)
+  ref_type       String?        @db.VarChar(40)
+  ref_id         String?        @db.VarChar(80)
+  ref_label      String?        @db.VarChar(255)
+  supplier_name  String?        @db.VarChar(255)
+  occurred_at    DateTime       @default(now()) @db.Timestamptz(6)
+  scheduled_at   DateTime?      @db.Timestamptz(6)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  cost_centers   cost_centers   @relation(fields: [cost_center_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  budget_periods budget_periods @relation(fields: [period_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([period_id, cost_center_id], map: "idx_commitments_period_cc")
+  @@index([ref_type, ref_id], map: "idx_commitments_ref")
+  @@index([period_id, tipo], map: "idx_commitments_tipo")
+}
+
+model budget_lines {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id      String         @db.Uuid
+  period_id       String         @db.Uuid
+  cost_center_id  String         @db.Uuid
+  account_code    String?        @db.VarChar(40)
+  project_id      String?        @db.VarChar(60)
+  amount_approved Decimal        @default(0) @db.Decimal(18, 2)
+  amount_revised  Decimal?       @db.Decimal(18, 2)
+  currency        String         @default("BRL") @db.VarChar(8)
+  notes           String?
+  created_at      DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime       @default(now()) @db.Timestamptz(6)
+  cost_centers    cost_centers   @relation(fields: [cost_center_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  budget_periods  budget_periods @relation(fields: [period_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([cost_center_id], map: "idx_budget_lines_cc")
+  @@index([period_id], map: "idx_budget_lines_period")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model budget_periods {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id         String               @db.Uuid
+  year               Int
+  month              Int
+  plant              String?              @db.VarChar(40)
+  status             String               @default("borrador") @db.VarChar(20)
+  total_approved     Decimal              @default(0) @db.Decimal(18, 2)
+  currency           String               @default("BRL") @db.VarChar(8)
+  closed_at          DateTime?            @db.Timestamptz(6)
+  closed_by          String?              @db.VarChar(255)
+  snapshot           Json?
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  budget_alerts      budget_alerts[]
+  budget_commitments budget_commitments[]
+  budget_lines       budget_lines[]
+
+  @@unique([company_id, year, month, plant])
+  @@index([company_id], map: "idx_budget_periods_company")
+  @@index([company_id, status], map: "idx_budget_periods_status")
+}
+
+model cost_centers {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id         String               @db.Uuid
+  code               String               @db.VarChar(40)
+  name               String               @db.VarChar(255)
+  parent_id          String?              @db.Uuid
+  plant              String?              @db.VarChar(40)
+  responsible_id     String?              @db.VarChar(255)
+  responsible_name   String?              @db.VarChar(255)
+  active             Boolean              @default(true)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  budget_commitments budget_commitments[]
+  budget_lines       budget_lines[]
+  cost_centers       cost_centers?        @relation("cost_centersTocost_centers", fields: [parent_id], references: [id], onUpdate: NoAction)
+  other_cost_centers cost_centers[]       @relation("cost_centersTocost_centers")
+
+  @@unique([company_id, code])
+  @@index([company_id], map: "idx_cost_centers_company")
 }
