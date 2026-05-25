@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { ExpenseProjectionService } from '../expense-projection/expense-projection.service';
 
 @Injectable()
 export class PurchaseOrderService {
-  private prisma: PrismaService;
-
-  constructor(prisma: PrismaService) {
-    this.prisma = prisma;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly expenseProjection: ExpenseProjectionService,
+  ) {}
 
   private normalizeExtraData(input: any): Record<string, any> {
     const base = input?.data && typeof input.data === 'object' ? input.data : {};
@@ -30,6 +30,10 @@ export class PurchaseOrderService {
       // them and the frontend Archivar button appears to do nothing.
       ...(input?.archived !== undefined ? { archived: !!input.archived } : {}),
       ...(input?.archivedAt !== undefined ? { archivedAt: input.archivedAt } : {}),
+      // Budget linkage (no dedicated column either — lives in JSONB).
+      ...(input?.costCenterId !== undefined ? { costCenterId: input.costCenterId } : {}),
+      ...(input?.scheduledPaymentDate !== undefined ? { scheduledPaymentDate: input.scheduledPaymentDate } : {}),
+      ...(input?.proveedorNome !== undefined ? { proveedorNome: input.proveedorNome } : {}),
     };
   }
 
@@ -51,6 +55,9 @@ export class PurchaseOrderService {
       fechaOrden: entity.fecha_orden ?? extra.fechaOrden ?? null,
       archived: !!extra.archived,
       archivedAt: extra.archivedAt ?? null,
+      costCenterId: extra.costCenterId ?? null,
+      scheduledPaymentDate: extra.scheduledPaymentDate ?? null,
+      proveedorNome: extra.proveedorNome ?? null,
       createdAt: entity.created_at,
       updatedAt: entity.updated_at,
     };
@@ -113,6 +120,12 @@ export class PurchaseOrderService {
       },
     });
 
+    await this.syncBudgetCommitments(created, companyId).catch((err) => {
+      // No bloquear la creación si la sincronización con presupuesto falla
+      // eslint-disable-next-line no-console
+      console.warn('[purchase-orders] budget sync failed:', err?.message || err);
+    });
+
     return this.toClient(created);
   }
 
@@ -161,6 +174,11 @@ export class PurchaseOrderService {
       },
     });
 
+    await this.syncBudgetCommitments(updated, companyId).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[purchase-orders] budget sync failed:', err?.message || err);
+    });
+
     return this.toClient(updated);
   }
 
@@ -181,5 +199,115 @@ export class PurchaseOrderService {
     }
 
     return { id };
+  }
+
+  // ─── Budget integration ──────────────────────────────────────────────
+  /**
+   * Devuelve el monto total de la OC sumando produtos[].quantidade * precioUnitario.
+   * Tolera diferentes nombres (precio, precioUnitario, precoUnitario, valorUnitario).
+   */
+  private computePoAmount(entity: any): number {
+    const extra = entity?.data && typeof entity.data === 'object' ? entity.data : {};
+    const produtos = entity?.produtos ?? extra.produtos ?? [];
+    if (!Array.isArray(produtos)) return 0;
+    let total = 0;
+    for (const p of produtos) {
+      if (!p || typeof p !== 'object') continue;
+      const qty = Number(p.quantidade ?? p.quantity ?? p.cantidad ?? 1) || 0;
+      const unit = Number(
+        p.precioUnitario ?? p.precoUnitario ?? p.valorUnitario ?? p.precio ?? p.preco ?? p.price ?? 0,
+      ) || 0;
+      total += qty * unit;
+    }
+    return total;
+  }
+
+  private mapEstadoToTipo(estado: string | null | undefined): 'comprometido' | 'recibido' | 'pagado' | null {
+    if (!estado) return null;
+    const e = String(estado).toLowerCase();
+    if (e === 'pagado' || e === 'pago' || e === 'paid') return 'pagado';
+    if (e === 'recibido' || e === 'recibida' || e === 'received' || e === 'entregue' || e === 'entregado') return 'recibido';
+    return null;
+  }
+
+  /**
+   * Sincroniza la OC con el módulo de Proyección de Gastos:
+   *  - Siempre registra (de forma idempotente) un commitment 'comprometido'.
+   *  - Si el estado de la OC indica recepción o pago, registra los tipos correspondientes.
+   * Dedup: una OC solo genera un commitment por (ref_type='po', ref_id=poId, tipo).
+   */
+  private async syncBudgetCommitments(entity: any, companyId: string) {
+    if (!entity?.id || !companyId) return;
+    const extra = entity?.data && typeof entity.data === 'object' ? entity.data : {};
+    const costCenterId = (extra.costCenterId ?? entity.cost_center_id ?? null) as string | null;
+    if (!costCenterId) return; // sin centro de costo no podemos imputar
+
+    const amount = this.computePoAmount(entity);
+    if (!amount || amount <= 0) return;
+
+    const fechaOrden: Date = entity.fecha_orden ? new Date(entity.fecha_orden) : new Date();
+    if (Number.isNaN(fechaOrden.getTime())) return;
+
+    // Buscar o resolver el período presupuestario (año/mes/plant) — usa el primero abierto que matchee.
+    const cc = await this.prisma.cost_centers.findFirst({
+      where: { id: costCenterId, company_id: companyId },
+    });
+    const plant = cc?.plant ?? null;
+
+    const period = await this.prisma.budget_periods.findFirst({
+      where: {
+        company_id: companyId,
+        year: fechaOrden.getFullYear(),
+        month: fechaOrden.getMonth() + 1,
+        plant,
+        status: { in: ['borrador', 'aprobado'] },
+      },
+    });
+    if (!period) return; // sin período abierto no se registra
+
+    const refId = entity.id as string;
+    const refLabel = (entity.numero_ordem ?? extra.numeroOrdem ?? refId) as string;
+    const supplierName = (extra.proveedorNome ?? null) as string | null;
+    const scheduledAt = extra.scheduledPaymentDate ? new Date(extra.scheduledPaymentDate) : null;
+    const scheduledSafe = scheduledAt && !Number.isNaN(scheduledAt.getTime()) ? scheduledAt : null;
+
+    const ensureCommitment = async (tipo: 'comprometido' | 'recibido' | 'pagado') => {
+      const existing = await this.prisma.budget_commitments.findFirst({
+        where: {
+          company_id: companyId,
+          period_id: period.id,
+          ref_type: 'po',
+          ref_id: refId,
+          tipo,
+        },
+      });
+      if (existing) return;
+      await this.expenseProjection.recordCommitment({
+        companyId,
+        periodId: period.id,
+        costCenterId,
+        tipo,
+        amount,
+        currency: 'BRL',
+        refType: 'po',
+        refId,
+        refLabel,
+        supplierName: supplierName ?? undefined,
+        occurredAt: fechaOrden,
+        scheduledAt: scheduledSafe,
+      });
+    };
+
+    // Siempre 'comprometido'
+    await ensureCommitment('comprometido');
+
+    // Si el estado lo amerita, añadir recibido/pagado
+    const tipoExtra = this.mapEstadoToTipo(entity.estado ?? extra.estado);
+    if (tipoExtra === 'recibido') {
+      await ensureCommitment('recibido');
+    } else if (tipoExtra === 'pagado') {
+      await ensureCommitment('recibido');
+      await ensureCommitment('pagado');
+    }
   }
 }
