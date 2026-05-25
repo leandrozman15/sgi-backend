@@ -477,6 +477,13 @@ export class ExpenseProjectionService {
 
     const workingDaysLeft = this.workingDaysLeftInMonth(period.year, period.month);
 
+    const linkedPOs = await this.buildLinkedPOs(
+      companyId,
+      filteredCommitments,
+      ccById,
+      byCostCenter,
+    );
+
     return {
       period: this.serializePeriod(period),
       totals: {
@@ -493,9 +500,103 @@ export class ExpenseProjectionService {
         workingDaysLeft,
       },
       byCostCenter,
-      linkedPOs: [] as any[],
+      linkedPOs,
       alerts: alerts.map((a) => this.serializeAlert(a)),
     };
+  }
+
+  /**
+   * Construye la lista de Ordens de Compra ligadas al período a partir de los
+   * commitments con ref_type='po'. Enriquece con estado/prazo_entrega de la
+   * tabla purchase_orders si la OC todavía existe.
+   */
+  private async buildLinkedPOs(
+    companyId: string,
+    commitments: any[],
+    ccById: Map<string, any>,
+    byCostCenter: Array<{ costCenterId: string; approved: number; projectedClose: number }>,
+  ) {
+    const poCommitments = commitments.filter((c) => c.ref_type === 'po' && c.ref_id);
+    if (poCommitments.length === 0) return [] as any[];
+
+    // Agrupar por ref_id (cada OC puede tener varios commitments: comprometido + recibido + pagado)
+    const byPo = new Map<string, any[]>();
+    for (const c of poCommitments) {
+      const list = byPo.get(c.ref_id) ?? [];
+      list.push(c);
+      byPo.set(c.ref_id, list);
+    }
+
+    const poIds = Array.from(byPo.keys());
+    const purchaseOrders = await this.prisma.purchase_orders.findMany({
+      where: { id: { in: poIds }, company_id: companyId },
+    });
+    const poById = new Map(purchaseOrders.map((p) => [p.id, p]));
+
+    const approvedByCc = new Map(byCostCenter.map((c) => [c.costCenterId, c.approved]));
+    const projectedByCc = new Map(byCostCenter.map((c) => [c.costCenterId, c.projectedClose]));
+
+    const now = Date.now();
+    const result: any[] = [];
+
+    for (const [poId, items] of byPo.entries()) {
+      // base = commitment 'comprometido' (o el primero si no hay)
+      const base = items.find((i) => i.tipo === 'comprometido') ?? items[0];
+      const hasPagado = items.some((i) => i.tipo === 'pagado');
+      const amount = Number(base.amount ?? 0);
+      const costCenterId = base.cost_center_id as string;
+      const cc = ccById.get(costCenterId);
+      const po = poById.get(poId);
+      const extra = (po?.data && typeof po.data === 'object' ? po.data : {}) as any;
+
+      // payment status
+      let paymentStatus: 'a_termino' | 'proximo' | 'vencido' | 'sin_fecha' | 'pagado';
+      if (hasPagado) {
+        paymentStatus = 'pagado';
+      } else if (!base.scheduled_at) {
+        paymentStatus = 'sin_fecha';
+      } else {
+        const due = new Date(base.scheduled_at).getTime();
+        if (!Number.isFinite(due)) {
+          paymentStatus = 'sin_fecha';
+        } else if (due < now) {
+          paymentStatus = 'vencido';
+        } else if ((due - now) / (1000 * 60 * 60 * 24) <= 10) {
+          paymentStatus = 'proximo';
+        } else {
+          paymentStatus = 'a_termino';
+        }
+      }
+
+      const approvedCc = approvedByCc.get(costCenterId) ?? 0;
+      const projectedCc = projectedByCc.get(costCenterId) ?? 0;
+      const exceedsBudget = approvedCc > 0 && projectedCc > approvedCc;
+
+      result.push({
+        id: poId,
+        numeroOrdem: po?.numero_ordem ?? extra.numeroOrdem ?? base.ref_label ?? poId,
+        proveedorNome: base.supplier_name ?? extra.proveedorNome ?? '',
+        costCenterId,
+        costCenterName: cc?.name ?? null,
+        amount,
+        deliveryDate: po?.prazo_entrega ?? extra.prazoEntrega ?? null,
+        scheduledPaymentDate: base.scheduled_at ?? extra.scheduledPaymentDate ?? null,
+        poStatus: po?.estado ?? extra.estado ?? null,
+        paymentStatus,
+        exceedsBudget,
+      });
+    }
+
+    // Orden: primero vencidos, luego próximos, luego por monto desc
+    const order: Record<string, number> = { vencido: 0, proximo: 1, sin_fecha: 2, a_termino: 3, pagado: 4 };
+    result.sort((a, b) => {
+      const pa = order[a.paymentStatus] ?? 9;
+      const pb = order[b.paymentStatus] ?? 9;
+      if (pa !== pb) return pa - pb;
+      return b.amount - a.amount;
+    });
+
+    return result;
   }
 
   private workingDaysLeftInMonth(year: number, month: number): number {
