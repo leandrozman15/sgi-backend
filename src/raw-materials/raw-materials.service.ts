@@ -67,6 +67,12 @@ export class RawMaterialService {
       ...(input?.aliquotaIBSMun !== undefined ? { aliquotaIBSMun: input.aliquotaIBSMun } : {}),
       ...(input?.aliquotaCBS !== undefined ? { aliquotaCBS: input.aliquotaCBS } : {}),
       ...(input?.fornecedores !== undefined ? { fornecedores: input.fornecedores } : {}),
+      ...(input?.imageUrls !== undefined
+        ? { imageUrls: Array.isArray(input.imageUrls) ? input.imageUrls.filter((u: any) => typeof u === 'string' && u.trim()) : [] }
+        : {}),
+      ...(input?.imageUrl !== undefined
+        ? { imageUrl: typeof input.imageUrl === 'string' && input.imageUrl.trim() ? input.imageUrl : null }
+        : {}),
     };
   }
 
@@ -116,6 +122,11 @@ export class RawMaterialService {
       aliquotaIBSMun: entity.aliquotaIBSMun ?? extra.aliquotaIBSMun ?? null,
       aliquotaCBS: entity.aliquotaCBS ?? extra.aliquotaCBS ?? null,
       fornecedores: entity.fornecedores ?? extra.fornecedores ?? [],
+      imageUrls: Array.isArray(extra.imageUrls) ? extra.imageUrls : [],
+      imageUrl:
+        (typeof extra.imageUrl === 'string' && extra.imageUrl.trim()) ||
+        (Array.isArray(extra.imageUrls) && extra.imageUrls[0]) ||
+        null,
     };
   }
 
