@@ -2054,3 +2054,81 @@ model expense_intentions {
   @@index([period_id], map: "idx_expense_intentions_period")
   @@index([company_id, status], map: "idx_expense_intentions_status")
 }
+
+model recepcoes {
+  id                 String           @id
+  companyId          String
+  fornecedorId       String
+  fornecedorNome     String
+  ordemCompraId      String?
+  ordemCompraNumero  String?
+  tipoDocumento      String           @default("NF")
+  numeroDocumento    String
+  chaveAcesso        String?
+  dataEmissao        DateTime
+  dataVencimento     DateTime?
+  moeda              String           @default("BRL")
+  transportadoraId   String?
+  transportadoraNome String?
+  modalidadeFrete    String?
+  valorProdutos      Decimal          @default(0) @db.Decimal(14, 2)
+  valorDesconto      Decimal          @default(0) @db.Decimal(14, 2)
+  valorFrete         Decimal          @default(0) @db.Decimal(14, 2)
+  valorSeguro        Decimal          @default(0) @db.Decimal(14, 2)
+  outrasDespesas     Decimal          @default(0) @db.Decimal(14, 2)
+  valorImpostos      Decimal          @default(0) @db.Decimal(14, 2)
+  valorTotalNF       Decimal          @default(0) @db.Decimal(14, 2)
+  status             String           @default("Pendente")
+  observacoes        String?
+  xmlNfe             String?
+  stockUpdated       Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+  createdBy          String?
+  itens              recepcao_itens[]
+
+  @@unique([companyId, chaveAcesso], map: "Recepcao_company_chave_unique")
+  @@index([companyId], map: "Recepcao_companyId_idx")
+  @@index([companyId, deletedAt], map: "Recepcao_companyId_deletedAt_idx")
+  @@index([companyId, status], map: "Recepcao_companyId_status_idx")
+  @@index([companyId, dataEmissao], map: "Recepcao_companyId_dataEmissao_idx")
+  @@index([companyId, fornecedorId], map: "Recepcao_companyId_fornecedorId_idx")
+  @@index([ordemCompraId], map: "Recepcao_ordemCompraId_idx")
+}
+
+model recepcao_itens {
+  id               String    @id
+  recepcaoId       String
+  companyId        String
+  ordem            Int       @default(0)
+  entryType        String    @default("catalogo")
+  tipo             String    @default("produto")
+  itemId           String?
+  descricao        String
+  ncm              String?
+  csosn            String?
+  cfop             String?
+  cst              String?
+  unidade          String?
+  quantidade       Decimal   @default(0) @db.Decimal(14, 4)
+  valorUnitario    Decimal   @default(0) @db.Decimal(14, 4)
+  valorDesconto    Decimal   @default(0) @db.Decimal(14, 2)
+  valorFrete       Decimal   @default(0) @db.Decimal(14, 2)
+  valorSeguro      Decimal   @default(0) @db.Decimal(14, 2)
+  outrasDespesas   Decimal   @default(0) @db.Decimal(14, 2)
+  aliquotaImpostos Decimal   @default(0) @db.Decimal(8, 4)
+  valorImpostos    Decimal   @default(0) @db.Decimal(14, 2)
+  impostosDetalhe  Json      @default("{}")
+  loteFabricante   String?
+  locationCode     String?
+  subtotal         Decimal   @default(0) @db.Decimal(14, 2)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  recepcao         recepcoes @relation(fields: [recepcaoId], references: [id], onDelete: Cascade)
+
+  @@index([recepcaoId], map: "RecepcaoItem_recepcaoId_idx")
+  @@index([companyId], map: "RecepcaoItem_companyId_idx")
+  @@index([companyId, itemId], map: "RecepcaoItem_companyId_itemId_idx")
+  @@index([ncm], map: "RecepcaoItem_ncm_idx")
+}

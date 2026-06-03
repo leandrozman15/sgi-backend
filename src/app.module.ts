@@ -33,6 +33,7 @@ import { AccountingModule } from './accounting/accounting.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { ExpeditionModule } from './expedition/expedition.module';
 import { ExpenseProjectionModule } from './expense-projection/expense-projection.module';
+import { RecepcaoModule } from './recepcao/recepcao.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { AsaasModule } from './asaas/asaas.module';
@@ -93,6 +94,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     AnalysisModule,
     ExpeditionModule,
     ExpenseProjectionModule,
+    RecepcaoModule,
     AsaasModule,
     
     // ✅ AGREGAR INTERNAL MODULE AQUÍ
