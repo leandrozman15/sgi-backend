@@ -77,6 +77,8 @@ export class ProductService {
       ...(input?.minStock !== undefined ? { minStock: input.minStock } : {}),
       ...(input?.maxStock !== undefined ? { maxStock: input.maxStock } : {}),
       ...(input?.imageUrls !== undefined ? { imageUrls: input.imageUrls } : {}),
+      ...(input?.costPrice !== undefined ? { costPrice: input.costPrice } : {}),
+      ...(input?.markup !== undefined ? { markup: input.markup } : {}),
       ...(input?.variants !== undefined ? { variants: input.variants } : {}),
       ...(input?.rawMaterials !== undefined ? { rawMaterials: input.rawMaterials } : {}),
       ...(input?.stages !== undefined ? { stages: input.stages } : {}),
@@ -93,6 +95,8 @@ export class ProductService {
         const name = v.name || v.value || `${baseName} - ${v.sku || v.code || 'Variante'}`;
         const code = v.code ?? v.sku ?? null;
         const price = this.toNumberOrNull(v.price ?? v.preco ?? v.valor ?? v.valorUnitario ?? v.unitPrice);
+        const cost_price = this.toNumberOrNull(v.costPrice ?? v.cost_price ?? v.cost ?? v.custo);
+        const markup = this.toNumberOrNull(v.markup);
         return {
           id: v.id ?? randomUUID(),
           product_id: productId,
@@ -101,6 +105,8 @@ export class ProductService {
           sku: v.sku ?? null,
           code,
           price,
+          cost_price,
+          markup,
           data: v,
           updated_at: new Date(),
         };
@@ -134,6 +140,8 @@ export class ProductService {
             sku: v.sku,
             code: v.code,
             price: v.price,
+            costPrice: v.cost_price ?? vData.costPrice ?? null,
+            markup: v.markup ?? vData.markup ?? null,
             stock: vData.stock ?? vData.currentStock ?? vData.quantity ?? 0,
             ean: vData.ean ?? vData.gs1Code ?? null,
           };
@@ -177,6 +185,8 @@ export class ProductService {
       aliquotaIBSMun: entity.aliquota_ibs_mun ?? extra.aliquotaIBSMun ?? null,
       aliquotaCBS: entity.aliquota_cbs ?? extra.aliquotaCBS ?? null,
       baseCalculoIBSCBS: entity.base_calculo_ibs_cbs ?? extra.baseCalculoIBSCBS ?? null,
+      costPrice: entity.cost_price ?? extra.costPrice ?? null,
+      markup: entity.markup ?? extra.markup ?? null,
       imageUrls: entity.image_urls ?? extra.imageUrls ?? [],
       rawMaterials: entity.raw_materials ?? extra.rawMaterials ?? [],
       stages: entity.stages ?? extra.stages ?? [],
@@ -292,6 +302,8 @@ export class ProductService {
         aliquota_cbs: this.toNumberOrNull(data?.aliquotaCBS),
         base_calculo_ibs_cbs: this.toNumberOrNull(data?.baseCalculoIBSCBS),
         image_urls: data?.imageUrls ?? null,
+        cost_price: this.toNumberOrNull(data?.costPrice),
+        markup: this.toNumberOrNull(data?.markup),
         variants: data?.variants ?? null,
         raw_materials: data?.rawMaterials ?? null,
         stages: data?.stages ?? null,
@@ -387,6 +399,8 @@ export class ProductService {
         ...(data?.aliquotaCBS !== undefined ? { aliquota_cbs: this.toNumberOrNull(data.aliquotaCBS) } : {}),
         ...(data?.baseCalculoIBSCBS !== undefined ? { base_calculo_ibs_cbs: this.toNumberOrNull(data.baseCalculoIBSCBS) } : {}),
         ...(data?.imageUrls !== undefined ? { image_urls: data.imageUrls } : {}),
+        ...(data?.costPrice !== undefined ? { cost_price: this.toNumberOrNull(data.costPrice) } : {}),
+        ...(data?.markup !== undefined ? { markup: this.toNumberOrNull(data.markup) } : {}),
         ...(data?.variants !== undefined ? { variants: data.variants } : {}),
         ...(data?.rawMaterials !== undefined ? { raw_materials: data.rawMaterials } : {}),
         ...(data?.stages !== undefined ? { stages: data.stages } : {}),
