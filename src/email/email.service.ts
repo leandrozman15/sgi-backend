@@ -165,179 +165,90 @@ export class EmailService {
       }
     }
 
+    attachments.push({
+      filename: 'logofluxion.png',
+      content: FLUXION_LOGO_BASE64,
+      contentType: 'image/png',
+      contentId: 'fluxion-logo',
+    });
+
     const subject = `${isCancelada ? '[CANCELADA] ' : ''}${tipoDoc} Nº ${numeroFormatado} | ${emitente.razaoSocial}`;
+
+    const headerGradient = isCancelada ? '#dc2626, #991b1b' : '#1a56db, #1e40af';
+    const headerSubtitle = isCancelada
+      ? `<span style="color: #fecaca;">NF-e Cancelada</span>`
+      : `${tipoDoc} Nº ${numeroFormatado} — Série ${serie}`;
+    const hasXmlAttached = !!(saleData.xmlNFe || saleData.nfeXml);
+    const hasPdfAttached = !!(saleData.pdfNFe || saleData.danfePdf);
 
     const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 640px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #1a56db, #1e40af); padding: 24px 32px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">
-            Nota Fiscal Eletrônica
+        <div style="background: linear-gradient(135deg, ${headerGradient}); padding: 24px 32px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">
+            ${isCancelada ? 'NF-e Cancelada' : 'Nota Fiscal Eletrônica'}
           </h1>
-          <p style="color: #bfdbfe; margin: 8px 0 0; font-size: 14px;">
+          <p style="color: ${isCancelada ? '#fecaca' : '#bfdbfe'}; margin: 8px 0 0; font-size: 14px;">
             ${tipoDoc} Nº ${numeroFormatado} — Série ${serie}
           </p>
         </div>
-
-        <!-- Body -->
         <div style="padding: 32px;">
           ${isCancelada ? `
           <div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:6px;padding:14px 18px;margin:0 0 20px;">
-            <p style="margin:0;color:#991b1b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">⚠️ NF-e Cancelada</p>
-            <p style="margin:6px 0 0;color:#7f1d1d;font-size:13px;line-height:1.5;">Esta Nota Fiscal Eletrônica foi <strong>cancelada</strong> junto à SEFAZ. O DANFE em anexo refere-se ao documento original emitido e não possui validade fiscal após o cancelamento.</p>
+            <p style="margin:0;color:#991b1b;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">NF-e Cancelada na SEFAZ</p>
+            <p style="margin:6px 0 0;color:#7f1d1d;font-size:13px;line-height:1.5;">O DANFE em anexo refere-se ao documento original emitido e não possui validade fiscal após o cancelamento.</p>
           </div>` : ''}
-          <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-            Prezado(a) <strong>${destinatario.nome}</strong>,
-          </p>
-          <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-            Segue em anexo a ${tipoDoc} referente à operação de <strong>${naturezaOperacao || 'venda'}</strong>.
-            ${valorFormatado ? `Valor total: <strong>${valorFormatado}</strong>.` : ''}
+
+          <p style="font-size: 16px; margin: 0 0 12px;">Olá, <strong>${destinatario.nome || 'Cliente'}</strong>.</p>
+          <p style="font-size: 15px; color: #374151;">
+            Segue em anexo a ${tipoDoc} nº <strong>${numeroFormatado}</strong>${naturezaOperacao ? ` referente à operação de <strong>${naturezaOperacao}</strong>` : ''}.
           </p>
 
-          <!-- Emitente -->
-          <div style="background: #f0f7ff; border-left: 4px solid #1a56db; border-radius: 4px; padding: 16px 20px; margin-bottom: 20px;">
-            <p style="margin: 0 0 8px; font-size: 13px; color: #1a56db; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
-              Emitente
-            </p>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px; width: 120px;">Razão Social:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px; font-weight: 600;">${emitente.razaoSocial}</td>
-              </tr>
-              <tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px;">CNPJ:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px;">${emitente.cnpj}</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- Destinatário -->
-          <div style="background: #f9fafb; border-left: 4px solid #6b7280; border-radius: 4px; padding: 16px 20px; margin-bottom: 20px;">
-            <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
-              Destinatário
-            </p>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px; width: 120px;">Nome:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px; font-weight: 600;">${destinatario.nome}</td>
-              </tr>
-              ${destinatario.cpfCnpj ? `<tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px;">CPF/CNPJ:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px;">${destinatario.cpfCnpj}</td>
-              </tr>` : ''}
-              ${destinatario.endereco ? `<tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px;">Endereço:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px;">${destinatario.endereco}</td>
-              </tr>` : ''}
-              ${destinatario.ie ? `<tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px;">IE:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px;">${destinatario.ie}</td>
-              </tr>` : ''}
-            </table>
-          </div>
-
-          <!-- Dados do documento -->
-          <div style="background: #fffbeb; border-left: 4px solid #d97706; border-radius: 4px; padding: 16px 20px; margin-bottom: 20px;">
-            <p style="margin: 0 0 8px; font-size: 13px; color: #d97706; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
-              Dados do Documento
-            </p>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px; width: 120px;">${tipoDoc} Nº:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px; font-weight: 600;">${numeroFormatado}</td>
-              </tr>
-              <tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px;">Série:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px;">${serie}</td>
-              </tr>
-              ${valorFormatado ? `<tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px;">Valor Total:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 14px; font-weight: 600;">${valorFormatado}</td>
-              </tr>` : ''}
-              ${chaveFormatada ? `<tr>
-                <td style="padding: 3px 0; color: #6b7280; font-size: 14px;">Chave de Acesso:</td>
-                <td style="padding: 3px 0; color: #111827; font-size: 12px; font-family: monospace;">${chaveFormatada}</td>
-              </tr>` : ''}
-            </table>
-          </div>
-
-          <!-- Attachments note -->
-          <p style="color: #6b7280; font-size: 13px; text-align: center; margin: 24px 0 0; padding: 12px; background: #f3f4f6; border-radius: 6px;">
-            📎 Em anexo: DANFE (PDF)${(saleData.xmlNFe || saleData.nfeXml) ? ' e XML da NF-e' : ''}
-          </p>
-        </div>
-
-        <!-- Footer / Signature -->
-        <div style="background: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0 0 4px; color: #374151; font-size: 14px; font-weight: 600;">
-            Equipe Fluxion
-          </p>
-          <p style="margin: 0 0 12px; color: #6b7280; font-size: 13px; line-height: 1.5;">
-            Soluções em gestão industrial e documentos fiscais
-          </p>
-          <table style="border-collapse: collapse;">
-            <tr>
-              <td style="padding: 2px 0; font-size: 13px;">
-                <span style="color: #6b7280;">🌐</span>
-                <a href="https://www.fluxi-on.com" style="color: #1a56db; text-decoration: none; margin-left: 4px;">www.fluxi-on.com</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 2px 0; font-size: 13px;">
-                <span style="color: #6b7280;">📧</span>
-                <a href="mailto:comercial@fluxi-on.com" style="color: #1a56db; text-decoration: none; margin-left: 4px;">comercial@fluxi-on.com</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 2px 0; font-size: 13px;">
-                <span style="color: #6b7280;">📞</span>
-                <span style="color: #374151; margin-left: 4px;">+55 41 8846-1074</span>
-              </td>
-            </tr>
+          <h3 style="margin-top: 24px; font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Dados da Nota Fiscal</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px;">
+            <tr><td style="padding: 6px 0; color: #6b7280;">Emitido por</td><td style="padding: 6px 0; text-align: right;"><strong>${emitente.razaoSocial}</strong>${emitente.cnpj ? ` (${this.formatCpfCnpj(emitente.cnpj)})` : ''}</td></tr>
+            <tr><td style="padding: 6px 0; color: #6b7280;">Emitido para</td><td style="padding: 6px 0; text-align: right;"><strong>${destinatario.nome}</strong>${destinatario.cpfCnpj ? ` (${destinatario.cpfCnpj})` : ''}</td></tr>
+            <tr><td style="padding: 6px 0; color: #6b7280;">${tipoDoc} Nº</td><td style="padding: 6px 0; text-align: right;"><strong>${numeroFormatado}</strong></td></tr>
+            <tr><td style="padding: 6px 0; color: #6b7280;">Série</td><td style="padding: 6px 0; text-align: right;"><strong>${serie}</strong></td></tr>
+            ${valorFormatado ? `<tr><td style="padding: 6px 0; color: #6b7280;">Valor Total</td><td style="padding: 6px 0; text-align: right;"><strong>${valorFormatado}</strong></td></tr>` : ''}
           </table>
-        </div>
 
-        <!-- Legal -->
-        <div style="padding: 16px 32px; text-align: center;">
-          <p style="font-size: 11px; color: #9ca3af; margin: 0; line-height: 1.5;">
-            Este e-mail foi gerado automaticamente pelo sistema Fluxion Documentos.<br/>
-            Em caso de dúvidas, responda este e-mail ou entre em contato pelos canais acima.
+          ${chaveAcesso ? `
+          <h3 style="margin-top: 24px; font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Como consultar a NF-e</h3>
+          <p style="font-size: 14px; margin: 8px 0; color: #374151;">
+            Chave de Acesso da NF-e:<br>
+            <code style="display: inline-block; background: #f3f4f6; padding: 8px 12px; border-radius: 4px; word-break: break-all; font-size: 13px; margin-top: 4px;">${chaveAcesso}</code>
           </p>
+          <p style="font-size: 13px; color: #6b7280;">
+            Acesse o Portal da Nota Fiscal Eletrônica em
+            <a href="https://www.nfe.fazenda.gov.br/" style="color: #1a56db;">nfe.fazenda.gov.br</a>
+            e use a chave acima na opção "Consultar Resumo da NF-e".
+          </p>
+          ` : ''}
+
+          <p style="font-size: 13px; color: #6b7280; margin-top: 24px;">${hasPdfAttached ? 'O DANFE está anexado a este e-mail' : ''}${hasPdfAttached && hasXmlAttached ? ', junto com o XML da NF-e.' : (hasPdfAttached ? '.' : (hasXmlAttached ? 'O XML da NF-e está anexado a este e-mail.' : ''))}</p>
+        </div>
+        <div style="background: #f9fafb; padding: 20px 32px; text-align: center; font-size: 12px; color: #6b7280;">
+          <img src="cid:fluxion-logo" alt="Fluxion" style="height: 32px; display: inline-block; margin-bottom: 8px;" />
+          <div style="margin-top: 4px; color: #9ca3af;"><a href="https://www.fluxi-on.com" style="color: #9ca3af; text-decoration: none;">www.fluxi-on.com</a></div>
         </div>
       </div>
     `;
 
     const text = [
-      `NOTA FISCAL ELETRÔNICA${isCancelada ? ' — CANCELADA' : ''}`,
-      `${tipoDoc} Nº ${numeroFormatado} — Série ${serie}`,
+      `Olá, ${destinatario.nome || 'Cliente'}.`,
       ``,
       isCancelada ? `*** NF-e CANCELADA na SEFAZ — documento sem validade fiscal após o cancelamento ***` : '',
       isCancelada ? `` : '',
-      `Prezado(a) ${destinatario.nome},`,
+      `Segue em anexo a ${tipoDoc} nº ${numeroFormatado}${naturezaOperacao ? ` referente à operação de ${naturezaOperacao}` : ''}.`,
       ``,
-      `Segue em anexo a ${tipoDoc} referente à operação de ${naturezaOperacao || 'venda'}.`,
-      valorFormatado ? `Valor total: ${valorFormatado}` : '',
-      ``,
-      `--- EMITENTE ---`,
-      `Razão Social: ${emitente.razaoSocial}`,
-      `CNPJ: ${emitente.cnpj}`,
-      ``,
-      `--- DESTINATÁRIO ---`,
-      `Nome: ${destinatario.nome}`,
-      destinatario.cpfCnpj ? `CPF/CNPJ: ${destinatario.cpfCnpj}` : '',
-      destinatario.endereco ? `Endereço: ${destinatario.endereco}` : '',
-      ``,
-      `--- DOCUMENTO ---`,
+      `Emitido por: ${emitente.razaoSocial}${emitente.cnpj ? ` (${this.formatCpfCnpj(emitente.cnpj)})` : ''}`,
+      `Emitido para: ${destinatario.nome}${destinatario.cpfCnpj ? ` (${destinatario.cpfCnpj})` : ''}`,
       `${tipoDoc} Nº: ${numeroFormatado}`,
       `Série: ${serie}`,
       valorFormatado ? `Valor Total: ${valorFormatado}` : '',
-      chaveAcesso ? `Chave de Acesso: ${chaveAcesso}` : '',
+      chaveAcesso ? `\nChave de Acesso da NF-e: ${chaveAcesso}` : '',
       ``,
-      `---`,
-      `Equipe Fluxion`,
-      `www.fluxi-on.com | comercial@fluxi-on.com | +55 41 8846-1074`,
-      ``,
-      `Este e-mail foi gerado automaticamente pelo sistema Fluxion Documentos.`,
+      `www.fluxi-on.com`,
     ].filter(Boolean).join('\n');
 
     this.logger.log(`Sending ${tipoDoc} ${numeroFormatado} to ${recipientEmail}`);
