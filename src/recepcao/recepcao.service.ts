@@ -298,11 +298,14 @@ export class RecepcaoService {
       const valorSeguro = this.num(raw?.valorSeguro);
       const outrasDespesas = this.num(raw?.outrasDespesas);
       const aliquota = this.num(raw?.aliquotaImpostos ?? raw?.impostos);
+      const icmsValor = this.num(raw?.icmsValor ?? raw?.icms);
+      const ipiValor = this.num(raw?.ipiValor ?? raw?.ipi);
       const base = quantidade * valorUnitario;
+      // ICMS é "por dentro" (já incluído no preço), apenas IPI e outros impostos % somam.
       const valorImpostos = this.round(
         raw?.valorImpostos != null
           ? this.num(raw.valorImpostos)
-          : base * (aliquota / 100),
+          : base * (aliquota / 100) + ipiValor,
       );
       const subtotal = this.round(
         base -
@@ -312,6 +315,16 @@ export class RecepcaoService {
           outrasDespesas +
           valorImpostos,
       );
+
+      const detalheBase =
+        raw?.impostosDetalhe && typeof raw.impostosDetalhe === 'object'
+          ? { ...raw.impostosDetalhe }
+          : {};
+      const impostosDetalhe = {
+        ...detalheBase,
+        icms: icmsValor,
+        ipi: ipiValor,
+      };
 
       return {
         entryType,
@@ -331,10 +344,7 @@ export class RecepcaoService {
         outrasDespesas,
         aliquotaImpostos: aliquota,
         valorImpostos,
-        impostosDetalhe:
-          raw?.impostosDetalhe && typeof raw.impostosDetalhe === 'object'
-            ? raw.impostosDetalhe
-            : {},
+        impostosDetalhe,
         loteFabricante: raw?.loteFabricante || null,
         locationCode: raw?.locationCode || null,
         subtotal,
@@ -479,32 +489,37 @@ export class RecepcaoService {
       observacoes: row.observacoes ?? undefined,
       stockUpdated: !!row.stockUpdated,
       itens: Array.isArray(row.itens)
-        ? row.itens.map((it: any) => ({
-            id: it.id,
-            ordem: it.ordem,
-            entryType: it.entryType,
-            tipo: it.tipo,
-            itemId: it.itemId ?? undefined,
-            descricao: it.descricao,
-            ncm: it.ncm ?? undefined,
-            csosn: it.csosn ?? undefined,
-            cfop: it.cfop ?? undefined,
-            cst: it.cst ?? undefined,
-            unidade: it.unidade ?? undefined,
-            quantidade: Number(it.quantidade),
-            valorUnitario: Number(it.valorUnitario),
-            valorDesconto: Number(it.valorDesconto),
-            valorFrete: Number(it.valorFrete),
-            valorSeguro: Number(it.valorSeguro),
-            outrasDespesas: Number(it.outrasDespesas),
-            aliquotaImpostos: Number(it.aliquotaImpostos),
-            impostos: Number(it.aliquotaImpostos),
-            valorImpostos: Number(it.valorImpostos),
-            impostosDetalhe: it.impostosDetalhe ?? {},
-            loteFabricante: it.loteFabricante ?? undefined,
-            locationCode: it.locationCode ?? undefined,
-            subtotal: Number(it.subtotal),
-          }))
+        ? row.itens.map((it: any) => {
+            const detalhe = it.impostosDetalhe ?? {};
+            return {
+              id: it.id,
+              ordem: it.ordem,
+              entryType: it.entryType,
+              tipo: it.tipo,
+              itemId: it.itemId ?? undefined,
+              descricao: it.descricao,
+              ncm: it.ncm ?? undefined,
+              csosn: it.csosn ?? undefined,
+              cfop: it.cfop ?? undefined,
+              cst: it.cst ?? undefined,
+              unidade: it.unidade ?? undefined,
+              quantidade: Number(it.quantidade),
+              valorUnitario: Number(it.valorUnitario),
+              valorDesconto: Number(it.valorDesconto),
+              valorFrete: Number(it.valorFrete),
+              valorSeguro: Number(it.valorSeguro),
+              outrasDespesas: Number(it.outrasDespesas),
+              aliquotaImpostos: Number(it.aliquotaImpostos),
+              impostos: Number(it.aliquotaImpostos),
+              valorImpostos: Number(it.valorImpostos),
+              icmsValor: Number(detalhe?.icms ?? 0),
+              ipiValor: Number(detalhe?.ipi ?? 0),
+              impostosDetalhe: detalhe,
+              loteFabricante: it.loteFabricante ?? undefined,
+              locationCode: it.locationCode ?? undefined,
+              subtotal: Number(it.subtotal),
+            };
+          })
         : [],
       createdAt: row.createdAt?.toISOString?.() ?? row.createdAt,
       updatedAt: row.updatedAt?.toISOString?.() ?? row.updatedAt,
