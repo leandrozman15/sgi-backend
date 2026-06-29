@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ResendEmailProvider, IEmailProvider, EmailAttachment } from './email.provider';
+import { FLUXION_LOGO_BASE64 } from './fluxion-logo';
 
 @Injectable()
 export class EmailService {
@@ -500,6 +501,13 @@ export class EmailService {
       });
     }
 
+    attachments.push({
+      filename: 'logofluxion.png',
+      content: FLUXION_LOGO_BASE64,
+      contentType: 'image/png',
+      contentId: 'fluxion-logo',
+    });
+
     const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 640px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
         <div style="background: linear-gradient(135deg, ${isDueToday ? '#dc2626, #991b1b' : '#f59e0b, #b45309'}); padding: 24px 32px; text-align: center;">
@@ -540,15 +548,9 @@ export class EmailService {
 
           <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">Se você já efetuou o pagamento, por favor desconsidere este e-mail.</p>
         </div>
-        <div style="background: #f9fafb; padding: 16px 32px; text-align: center; font-size: 12px; color: #6b7280;">
-          ${(() => {
-            const logoUrl = process.env.EMAIL_LOGO_URL || 'https://www.fluxi-on.com/logofluxion.png';
-            return `
-              <img src="${logoUrl}" alt="Fluxion" style="height: 28px; display: inline-block; margin-bottom: 8px;" />
-              <div>${emitenteNome}</div>
-              <div style="margin-top: 4px; color: #9ca3af;">Enviado por Fluxion · <a href="https://www.fluxi-on.com" style="color: #9ca3af; text-decoration: none;">www.fluxi-on.com</a></div>
-            `;
-          })()}
+        <div style="background: #f9fafb; padding: 20px 32px; text-align: center; font-size: 12px; color: #6b7280;">
+          <img src="cid:fluxion-logo" alt="Fluxion" style="height: 32px; display: inline-block; margin-bottom: 8px;" />
+          <div style="margin-top: 4px; color: #9ca3af;"><a href="https://www.fluxi-on.com" style="color: #9ca3af; text-decoration: none;">www.fluxi-on.com</a></div>
         </div>
       </div>
     `;

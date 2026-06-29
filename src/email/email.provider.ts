@@ -4,6 +4,7 @@ export interface EmailAttachment {
   filename: string;
   content: Buffer | string;
   contentType?: string;
+  contentId?: string;
 }
 
 export interface SendEmailParams {
@@ -57,6 +58,7 @@ export class ResendEmailProvider implements IEmailProvider {
           content: typeof a.content === 'string'
             ? Buffer.from(a.content, 'base64')
             : a.content,
+          contentId: a.contentId,
         })),
       });
 
