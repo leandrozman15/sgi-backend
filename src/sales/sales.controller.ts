@@ -240,10 +240,10 @@ export class SaleController {
   @Roles(UserRole.MASTER, UserRole.ADMIN, UserRole.GERENTE)
   async sendEmail(
     @Param('id') id: string,
-    @Body() body: { to?: string },
+    @Body() body: { to?: string; attachments?: Array<{ filename: string; content: string; contentType?: string }> },
     @Tenant() companyId: string,
   ) {
-    return this.emailService.sendInvoiceEmail(companyId, id, body?.to);
+    return this.emailService.sendInvoiceEmail(companyId, id, body?.to, body?.attachments);
   }
 
   @Get(':id/email-logs')

@@ -32,6 +32,7 @@ export class EmailService {
     companyId: string,
     invoiceId: string,
     overrideTo?: string,
+    extraAttachments?: Array<{ filename: string; content: string; contentType?: string }>,
   ): Promise<{ success: boolean; messageId?: string; sentTo?: string; error?: string }> {
     const sale = await this.prisma.sales.findFirst({
       where: { id: invoiceId, companyId },
@@ -149,6 +150,18 @@ export class EmailService {
         content: saleData.pdfNFe || saleData.danfePdf,
         contentType: 'application/pdf',
       });
+    }
+
+    if (Array.isArray(extraAttachments)) {
+      for (const att of extraAttachments) {
+        if (att?.filename && att?.content) {
+          attachments.push({
+            filename: att.filename,
+            content: att.content,
+            contentType: att.contentType || 'application/octet-stream',
+          });
+        }
+      }
     }
 
     const subject = `${isCancelada ? '[CANCELADA] ' : ''}${tipoDoc} Nº ${numeroFormatado} | ${emitente.razaoSocial}`;
