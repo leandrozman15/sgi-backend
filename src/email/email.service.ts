@@ -541,7 +541,14 @@ export class EmailService {
           <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">Se você já efetuou o pagamento, por favor desconsidere este e-mail.</p>
         </div>
         <div style="background: #f9fafb; padding: 16px 32px; text-align: center; font-size: 12px; color: #6b7280;">
-          ${emitenteNome}
+          ${(() => {
+            const logoUrl = process.env.EMAIL_LOGO_URL || 'https://www.fluxi-on.com/logofluxion.png';
+            return `
+              <img src="${logoUrl}" alt="Fluxion" style="height: 28px; display: inline-block; margin-bottom: 8px;" />
+              <div>${emitenteNome}</div>
+              <div style="margin-top: 4px; color: #9ca3af;">Enviado por Fluxion · <a href="https://www.fluxi-on.com" style="color: #9ca3af; text-decoration: none;">www.fluxi-on.com</a></div>
+            `;
+          })()}
         </div>
       </div>
     `;
