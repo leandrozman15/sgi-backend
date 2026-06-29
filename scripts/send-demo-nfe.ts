@@ -4,7 +4,6 @@
  */
 import 'dotenv/config';
 import { ResendEmailProvider } from '../src/email/email.provider';
-import { FLUXION_LOGO_BASE64 } from '../src/email/fluxion-logo';
 
 function formatNFeNumber(num: number | string): string {
   const n = String(num).replace(/\D/g, '').padStart(9, '0');
@@ -41,6 +40,7 @@ async function main() {
   const headerGradient = isCancelada ? '#dc2626, #991b1b' : '#1a56db, #1e40af';
   const subject = `[DEMO] ${tipoDoc} Nº ${numeroFormatado} | ${emitenteRazao}`;
 
+  const logoUrl = process.env.EMAIL_LOGO_URL || 'https://sgi-backend-oxxj.onrender.com/assets/email/logo.png';
   const html = `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 640px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
       <div style="background: linear-gradient(135deg, ${headerGradient}); padding: 24px 32px; text-align: center;">
@@ -81,7 +81,7 @@ async function main() {
         <p style="font-size: 12px; color: #dc2626; margin-top: 16px; padding: 8px; background: #fef2f2; border-radius: 4px;"><strong>⚠️ Este é um e-mail de DEMONSTRAÇÃO enviado para teste.</strong></p>
       </div>
       <div style="background: #f9fafb; padding: 20px 32px; text-align: center; font-size: 12px; color: #6b7280;">
-        <img src="cid:fluxion-logo" alt="Fluxion" style="height: 32px; display: inline-block; margin-bottom: 8px;" />
+        <img src="${logoUrl}" alt="Fluxion" style="height: 32px; display: inline-block; margin-bottom: 8px;" />
         <div style="margin-top: 4px; color: #9ca3af;"><a href="https://www.fluxi-on.com" style="color: #9ca3af; text-decoration: none;">www.fluxi-on.com</a></div>
       </div>
     </div>
@@ -111,14 +111,6 @@ async function main() {
     subject,
     html,
     text,
-    attachments: [
-      {
-        filename: 'logofluxion.png',
-        content: FLUXION_LOGO_BASE64,
-        contentType: 'image/png',
-        contentId: 'fluxion-logo',
-      },
-    ],
   });
 
   if (result.success) {

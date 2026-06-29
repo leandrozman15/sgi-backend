@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ResendEmailProvider, IEmailProvider, EmailAttachment } from './email.provider';
-import { FLUXION_LOGO_BASE64 } from './fluxion-logo';
 
 @Injectable()
 export class EmailService {
@@ -165,14 +164,9 @@ export class EmailService {
       }
     }
 
-    attachments.push({
-      filename: 'logofluxion.png',
-      content: FLUXION_LOGO_BASE64,
-      contentType: 'image/png',
-      contentId: 'fluxion-logo',
-    });
-
     const subject = `${isCancelada ? '[CANCELADA] ' : ''}${tipoDoc} Nº ${numeroFormatado} | ${emitente.razaoSocial}`;
+
+    const logoUrl = (process.env.EMAIL_LOGO_URL || process.env.APP_PUBLIC_URL || 'https://sgi-backend-oxxj.onrender.com').replace(/\/$/, '') + (process.env.EMAIL_LOGO_URL ? '' : '/assets/email/logo.png');
 
     const headerGradient = isCancelada ? '#dc2626, #991b1b' : '#1a56db, #1e40af';
     const headerSubtitle = isCancelada
@@ -228,7 +222,7 @@ export class EmailService {
           <p style="font-size: 13px; color: #6b7280; margin-top: 24px;">${hasPdfAttached ? 'O DANFE está anexado a este e-mail' : ''}${hasPdfAttached && hasXmlAttached ? ', junto com o XML da NF-e.' : (hasPdfAttached ? '.' : (hasXmlAttached ? 'O XML da NF-e está anexado a este e-mail.' : ''))}</p>
         </div>
         <div style="background: #f9fafb; padding: 20px 32px; text-align: center; font-size: 12px; color: #6b7280;">
-          <img src="cid:fluxion-logo" alt="Fluxion" style="height: 32px; display: inline-block; margin-bottom: 8px;" />
+          <img src="${logoUrl}" alt="Fluxion" style="height: 32px; display: inline-block; margin-bottom: 8px;" />
           <div style="margin-top: 4px; color: #9ca3af;"><a href="https://www.fluxi-on.com" style="color: #9ca3af; text-decoration: none;">www.fluxi-on.com</a></div>
         </div>
       </div>
@@ -412,12 +406,7 @@ export class EmailService {
       });
     }
 
-    attachments.push({
-      filename: 'logofluxion.png',
-      content: FLUXION_LOGO_BASE64,
-      contentType: 'image/png',
-      contentId: 'fluxion-logo',
-    });
+    const logoUrl = (process.env.EMAIL_LOGO_URL || process.env.APP_PUBLIC_URL || 'https://sgi-backend-oxxj.onrender.com').replace(/\/$/, '') + (process.env.EMAIL_LOGO_URL ? '' : '/assets/email/logo.png');
 
     const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 640px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
@@ -460,7 +449,7 @@ export class EmailService {
           <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">Se você já efetuou o pagamento, por favor desconsidere este e-mail.</p>
         </div>
         <div style="background: #f9fafb; padding: 20px 32px; text-align: center; font-size: 12px; color: #6b7280;">
-          <img src="cid:fluxion-logo" alt="Fluxion" style="height: 32px; display: inline-block; margin-bottom: 8px;" />
+          <img src="${logoUrl}" alt="Fluxion" style="height: 32px; display: inline-block; margin-bottom: 8px;" />
           <div style="margin-top: 4px; color: #9ca3af;"><a href="https://www.fluxi-on.com" style="color: #9ca3af; text-decoration: none;">www.fluxi-on.com</a></div>
         </div>
       </div>
